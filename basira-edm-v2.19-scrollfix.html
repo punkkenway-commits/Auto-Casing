@@ -1,0 +1,3090 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BASIRA EDM — CasingSeat™ &amp; StressCheck™ Engine v2.0</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --bevel-light:#ffffff; --bevel-dark:#6f6f6f; --bevel-darker:#3c3c3c;
+  --face:#ece9e2; --face2:#f6f4ef; --title1:#0a246a; --title2:#2a5fc4;
+  --ok:#0f7b3a; --warn:#b45309; --bad:#b91c1c; --sel:#0b3d91;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{font-family:'Segoe UI',Tahoma,Verdana,sans-serif;background:#8fa3b8;margin:0;padding:6px;font-size:12px;color:#1b1b1b;overflow:hidden}
+.win{background:var(--face);border:2px solid var(--bevel-light);border-right-color:var(--bevel-darker);border-bottom-color:var(--bevel-darker);box-shadow:4px 4px 0 rgba(0,0,20,.28);
+  width:100%;height:calc(100vh - 12px);margin:0;display:flex;flex-direction:column;overflow:hidden}
+/* the tab body is the only scrolling region */
+.app-body{min-height:0;overflow:hidden}
+.app-body>.grow{min-width:0;min-height:0}
+div[id^="view-"]{flex:1;min-height:0}
+/* charts grow with the window instead of a fixed height */
+.chart-wrap{flex:1;min-height:200px}
+/* every direct column of a view manages its own scrolling so nothing runs off-screen */
+div[id^="view-"]>.panel{min-height:0}
+div[id^="view-"]>div{min-height:0}
+.scroll-col{overflow-y:auto;overflow-x:hidden;min-height:0}
+.title-bar{background:linear-gradient(to right,var(--title1),var(--title2));color:#fff;padding:3px 8px;font-weight:600;font-size:12px;display:flex;align-items:center;justify-content:space-between}
+.menu-bar{background:var(--face);border-bottom:1px solid var(--bevel-dark);display:flex;font-size:11px}
+.menu-item{padding:3px 10px;cursor:pointer}
+.menu-item:hover{background:#d9d4c8}
+.toolbar{background:var(--face);border-bottom:1px solid var(--bevel-dark);padding:3px 4px;display:flex;gap:2px;align-items:center;flex-wrap:wrap}
+.tbtn{min-width:26px;height:24px;display:inline-flex;align-items:center;justify-content:center;gap:4px;border:1px solid var(--face);background:var(--face);font-size:11px;cursor:pointer;padding:0 6px}
+.tbtn:hover{border:1px solid var(--bevel-dark);background:var(--face2)}
+.tbtn:active{border-style:inset;background:#d9d4c8}
+.tsep{width:1px;height:18px;background:var(--bevel-dark);margin:0 3px}
+.btn{background:var(--face);border:1px solid var(--bevel-light);border-right-color:var(--bevel-darker);border-bottom-color:var(--bevel-darker);padding:3px 10px;font-size:11px;cursor:pointer;box-shadow:1px 1px 0 rgba(0,0,0,.15)}
+.btn:active{border-style:inset;background:#d9d4c8}
+.btn.primary{background:#0b3d91;color:#fff;border-color:#0b3d91;font-weight:600}
+.btn.small{padding:1px 6px;font-size:10px}
+.inp{border:1px solid var(--bevel-dark);border-top-color:var(--bevel-darker);border-left-color:var(--bevel-darker);padding:2px 5px;font-size:11px;background:#fff;width:100%;font-family:Consolas,monospace}
+.inp:focus{outline:2px solid #7aa5e8;outline-offset:-1px}
+label.fld{font-size:10px;color:#4a4a42;display:block;margin-bottom:1px}
+.panel{background:#fff;border:1px solid var(--bevel-dark)}
+.sec-h{background:linear-gradient(#e2ddd1,#cfc9ba);font-size:10.5px;font-weight:700;padding:3px 7px;border-bottom:1px solid var(--bevel-dark);letter-spacing:.02em;display:flex;justify-content:space-between;align-items:center}
+.tabs{display:flex;gap:2px;padding:5px 6px 0;background:#d9d4c8;border-bottom:1px solid var(--bevel-dark)}
+.tab{padding:4px 16px 3px;font-size:11px;border:1px solid var(--bevel-dark);border-bottom:none;background:#e6e2d7;cursor:pointer;position:relative;top:1px}
+.tab.active{background:#fff;font-weight:700;border-bottom:1px solid #fff}
+.status-bar{background:var(--face);border-top:1px solid var(--bevel-dark);padding:3px 8px;font-size:10.5px;display:flex;align-items:center;justify-content:space-between}
+table.grid{border-collapse:collapse;width:100%;font-size:11px}
+table.grid th{background:#e6e2d7;border:1px solid #b9b3a4;padding:3px 5px;font-size:10px;text-align:center;font-weight:700}
+table.grid td{border:1px solid #d5d0c3;padding:2px 5px;text-align:center;font-family:Consolas,monospace;font-size:10.5px}
+table.grid td.l{text-align:left;font-family:inherit}
+table.grid tr:nth-child(even) td{background:#faf9f6}
+.sf-ok{color:var(--ok);font-weight:700}
+.sf-warn{color:var(--warn);font-weight:700}
+.sf-bad{color:var(--bad);font-weight:700}
+.badge{font-size:9px;padding:1px 6px;border:1px solid;border-radius:2px;font-weight:700}
+.badge.ok{color:var(--ok);border-color:var(--ok);background:#eefcf3}
+.badge.bad{color:var(--bad);border-color:var(--bad);background:#fdeeee}
+.badge.warn{color:var(--warn);border-color:var(--warn);background:#fdf6ec}
+.tree-item{padding:2px 4px;cursor:pointer;font-size:11px;white-space:nowrap;display:flex;align-items:center;gap:5px}
+.tree-item:hover{background:#eee9dd}
+.tree-item.selected{background:var(--sel);color:#fff}
+.plot-title{font-size:10px;font-weight:700;background:#e6e2d7;padding:2px 6px;border-bottom:1px solid var(--bevel-dark);display:flex;justify-content:space-between;align-items:center}
+.chart-wrap{position:relative;background:#fff;min-height:200px}
+.chart-wrap>canvas{position:absolute;inset:8px;width:calc(100% - 16px)!important;height:calc(100% - 16px)!important}
+.modal-back{position:fixed;inset:0;background:rgba(10,20,40,.45);display:none;align-items:center;justify-content:center;z-index:60}
+.modal-back.open{display:flex}
+.modal{background:var(--face);border:2px solid var(--bevel-light);border-right-color:var(--bevel-darker);border-bottom-color:var(--bevel-darker);box-shadow:5px 5px 0 rgba(0,0,0,.3);min-width:420px;max-width:92vw;max-height:90vh;overflow:auto}
+.chk{display:flex;align-items:center;gap:5px;font-size:10.5px;padding:1px 0}
+.note{font-size:9.5px;color:#6b6659;line-height:1.35}
+.mono{font-family:Consolas,monospace}
+.kv{display:flex;justify-content:space-between;font-size:10.5px;padding:1px 0}
+.hr{border-top:1px solid #d5d0c3;margin:5px 0}
+.flex{display:flex}.col{flex-direction:column}.gap1{gap:6px}.gap2{gap:10px}.grow{flex:1}.wrap{flex-wrap:wrap}
+.p1{padding:6px}.p2{padding:10px}
+#secTable th,#secTable td{padding:2px 2px}
+.hide{display:none!important}
+.fig-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
+.fig{margin:0;border:1px solid #ddd;border-radius:3px;padding:6px;background:#fff;break-inside:avoid;page-break-inside:avoid}
+.fig img{width:100%;height:auto;display:block}
+.fig figcaption{font-size:9px;color:#555;margin-top:4px;text-align:center;font-style:italic}
+.fig-dl{margin-left:6px;font-size:8.5px;padding:1px 6px;font-style:normal;vertical-align:middle;cursor:pointer}
+
+@media print{
+  @page{ size:A4 portrait; margin:12mm }
+  body{background:#fff;padding:0}
+  .fig-grid{display:block}
+  .fig{border:1px solid #bbb;margin:0 0 8mm 0;break-inside:avoid;page-break-inside:avoid}
+  .fig img{max-height:105mm;object-fit:contain;margin:0 auto}
+  .fig-h{page-break-before:always}
+  #view-report{overflow:visible!important;height:auto!important}
+  .win{height:auto!important;overflow:visible!important}
+  .toolbar,.menu-bar,.tabs,.status-bar,#explorer,.no-print{display:none!important}
+  .win{box-shadow:none;border:none;max-width:100%}
+}
+</style>
+</head>
+<body>
+<div class="win">
+  <!-- Title bar -->
+  <div class="title-bar">
+    <div class="flex gap2" style="align-items:center">
+      <span>▦</span>
+      <span><strong>BASIRA EDM</strong> — CasingSeat™ &amp; StressCheck™ Engine&nbsp; <span style="opacity:.8;font-weight:400">v2.1 · metric · API 5C3 / 5CT / NACE MR0175</span></span>
+    </div>
+    <div class="flex gap1" style="align-items:center;font-size:10px">
+      <span>Well: <strong id="tbWellName">Well-1</strong></span>
+      <span class="badge ok" id="tbEngine">LIVE ENGINE</span>
+    </div>
+  </div>
+
+  <!-- Menu bar -->
+  <div class="menu-bar">
+    <div class="menu-item" onclick="newProject()">File ▾</div>
+    <div class="menu-item" onclick="switchTab('compass')">Directional</div>
+    <div class="menu-item" onclick="switchTab('formation')">Wellbore</div>
+    <div class="menu-item" onclick="switchTab('stresscheck')">Tubular</div>
+    <div class="menu-item" onclick="runAll()">Analysis</div>
+    <div class="menu-item" onclick="openDF()">Design Factors</div>
+    <div class="menu-item" onclick="openHelp()">Help</div>
+    <div class="grow"></div>
+    <div class="menu-item" style="cursor:default;color:#6b6659">EDM · metric depth (m) · sg · psi</div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <button class="tbtn" title="New project" onclick="newProject()">🗋 New</button>
+    <button class="tbtn" title="Open project (JSON)" onclick="document.getElementById('fileOpen').click()">📂 Open</button>
+    <button class="tbtn" title="Save project as JSON" onclick="saveProject()">💾 Save</button>
+    <input type="file" id="fileOpen" accept=".json" class="hide" onchange="loadProject(event)">
+    <div class="tsep"></div>
+    <button class="tbtn" style="color:var(--ok);font-weight:700" title="Run CasingSeat + StressCheck" onclick="runAll()">▶ Run Full Analysis</button>
+    <div class="tsep"></div>
+    <button class="tbtn" onclick="switchTab('compass')">🧭 Compass</button>
+    <button class="tbtn" onclick="switchTab('casingseat')">⛏ CasingSeat</button>
+    <button class="tbtn" onclick="switchTab('stresscheck')">📈 StressCheck</button>
+    <button class="tbtn" onclick="switchTab('schematic')">🗼 Schematic</button>
+    <button class="tbtn" onclick="switchTab('formation')">🪨 Formation Data</button>
+    <button class="tbtn" onclick="switchTab('report')">🖨 Report</button>
+    <div class="grow"></div>
+    <label class="chk no-print" title="Restrict grades to the NACE MR0175 / ISO 15156-2 Table A.3 sour service list">
+      <input type="checkbox" id="sourService" onchange="onSourChange()"> H₂S sour service (NACE)
+    </label>
+    <label class="chk no-print" title="ISO 15156-2 Table A.3 acceptability is temperature dependent: N80Q/R95/C110 need ≥65 °C, N80/P110 ≥80 °C, Q125 ≥107 °C">
+      Service temp <input id="scTempC" class="inp" style="width:52px" type="number" value="100" step="5" oninput="onSourChange()" onchange="onSourChange()"> °C
+    </label>
+  </div>
+
+  <div class="flex app-body" style="flex:1;min-height:0">
+    <!-- Explorer -->
+    <div id="explorer" style="width:215px;border-right:1px solid var(--bevel-dark);background:#fff;display:flex;flex-direction:column">
+      <div class="sec-h"><span>🗂 Well Explorer</span></div>
+      <div class="p1 grow" id="treeArea" style="overflow:auto"></div>
+      <div class="sec-h"><span>Well summary</span></div>
+      <div class="p1" id="wellSummary" style="font-size:10px;line-height:1.5"></div>
+    </div>
+
+    <!-- Main -->
+    <div class="grow flex col" style="min-width:0">
+      <div class="tabs">
+        <div class="tab" id="tab-compass" onclick="switchTab('compass')">Compass</div>
+        <div class="tab active" id="tab-casingseat" onclick="switchTab('casingseat')">CasingSeat</div>
+        <div class="tab" id="tab-stresscheck" onclick="switchTab('stresscheck')">StressCheck</div>
+        <div class="tab" id="tab-schematic" onclick="switchTab('schematic')">Well Schematic</div>
+        <div class="tab" id="tab-formation" onclick="switchTab('formation')">Formation Data</div>
+        <div class="tab" id="tab-report" onclick="switchTab('report')">Design Report</div>
+      </div>
+
+      <!-- ============ COMPASS (directional survey) ============ -->
+      <div id="view-compass" class="grow p1 flex gap1 hide" style="background:#d9d4c8;overflow:hidden;min-height:0">
+        <div class="panel flex col scroll-col" style="width:340px;flex-shrink:0">
+          <div class="sec-h"><span>Directional Survey Stations</span>
+            <button class="btn small" onclick="svAdd()" title="Add a station after the last one">+ Station</button></div>
+          <div class="p1" style="overflow:auto">
+            <table class="grid" id="svTable">
+              <thead><tr>
+                <th>MD (m)</th><th>Inc °</th><th>Azi °</th><th>TVD (m)</th><th>N/S (m)</th><th>E/W (m)</th><th>VS (m)</th><th>DLS<br><span style="font-weight:400;font-size:9px">°/30m</span></th><th></th>
+              </tr></thead>
+              <tbody id="svBody"></tbody>
+            </table>
+          </div>
+          <div class="p1" style="padding-top:0">
+            <div class="flex gap1">
+              <div class="grow"><label class="fld" title="Direction the vertical-section plot is projected along. Leave blank to use the final station's azimuth automatically.">VS azimuth ° (blank = auto)</label>
+                <input id="svVsAzi" class="inp" type="text" inputmode="decimal" placeholder="auto" onchange="svVsAziChange()"></div>
+              <div class="grow" style="align-self:end"><button class="btn" style="width:100%" onclick="svReset()" title="Discard all stations and go back to a straight vertical hole to the current well TD">↺ Vertical</button></div>
+            </div>
+            <div class="hr"></div>
+            <button class="btn primary" style="width:100%" onclick="svApply()" title="Copies the computed final TVD into the CasingSeat 'Well TD' field">✓ Apply Computed TVD to CasingSeat TD</button>
+            <div class="note" style="margin-top:5px">Minimum-curvature method between consecutive stations. DLS ≤3°/30m normal, 3–6°/30m caution, &gt;6°/30m severe. The stress-check engine still assumes a straight string — this tab supplies an accurate TVD, not dogleg bending loads.</div>
+          </div>
+          <div class="sec-h"><span>Directional Summary</span></div>
+          <div class="p1" id="svSummary" style="font-size:10.5px"></div>
+          <div class="sec-h" style="margin:0"><span>📋 Paste MD / Inc / Azi</span></div>
+          <div class="p1">
+            <div class="note" style="margin-bottom:4px">Copy three columns from Excel — <b>MD&nbsp;(m) · Inc&nbsp;(deg) · Azi&nbsp;(deg)</b> — and paste below. Tabs, commas, semicolons or spaces all work. Header lines are ignored.</div>
+            <textarea id="svPaste" class="inp" style="width:100%;height:90px;font-family:Consolas,monospace;resize:vertical" placeholder="0	0	0&#10;500	0	0&#10;1200	25	45&#10;3800	25	45"></textarea>
+            <div class="flex gap1" style="margin-top:5px">
+              <button class="btn primary" onclick="svPasteApply('replace')">↺ Replace table</button>
+              <button class="btn" onclick="svPasteApply('append')">＋ Append rows</button>
+            </div>
+            <div id="svPasteInfo" class="note" style="margin-top:5px"></div>
+          </div>
+        </div>
+
+        <div class="grow flex col gap1 scroll-col" style="min-width:0">
+          <div class="panel flex col" style="min-height:360px">
+            <div class="plot-title"><span>Plan View — Compass Rose</span><span class="note">N/E departure from surface location</span></div>
+            <div class="grow p1" style="display:flex;justify-content:center;align-items:center;background:#fff"><canvas id="compassCanvas" width="480" height="480"></canvas></div>
+          </div>
+          <div class="panel grow flex col" style="min-height:280px">
+            <div class="plot-title"><span>Directional Profile — TVD vs Vertical Section</span></div>
+            <div class="chart-wrap grow"><canvas id="surveyChart"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ CASINGSEAT ============ -->
+      <div id="view-casingseat" class="grow p1 flex gap1" style="background:#d9d4c8;overflow:hidden;min-height:0">
+        <div class="panel flex col" style="width:290px;flex-shrink:0">
+          <div class="sec-h"><span>Seat Selection Parameters</span></div>
+          <div class="p2 flex col gap1 grow">
+            <div>
+              <label class="fld">Solution method</label>
+              <select id="csMethod" class="inp">
+                <option value="bottomup">Bottom-Up (from TD)</option>
+                <option value="topdown">Top-Down (from surface)</option>
+              </select>
+            </div>
+            <div class="flex gap1">
+              <div class="grow"><label class="fld">Well TD, m TVD</label><input id="csTD" class="inp" type="number" value="3800" step="10"></div>
+              <div class="grow"><label class="fld">Min surface shoe, m</label><input id="csMinSurf" class="inp" type="number" value="100" step="10"></div>
+            </div>
+            <div class="hr"></div>
+            <div class="flex gap1">
+              <div class="grow"><label class="fld" title="EMW (sg) added above pore pressure for the drilling fluid">Trip margin, sg</label><input id="csTrip" class="inp" type="number" value="0.04" step="0.01"></div>
+              <div class="grow"><label class="fld" title="EMW (sg) subtracted from fracture gradient at the shoe">Kick margin, sg</label><input id="csKickMargin" class="inp" type="number" value="0.06" step="0.01"></div>
+            </div>
+            <div class="flex gap1">
+              <div class="grow"><label class="fld" title="Kick intensity: pore pressure underestimate assumed when taking a kick">Kick intensity, sg</label><input id="csKI" class="inp" type="number" value="0.06" step="0.01"></div>
+              <div class="grow"><label class="fld" title="Gas gradient of influx column">Gas grad, psi/ft</label><input id="csGasGrad" class="inp" type="number" value="0.10" step="0.01"></div>
+            </div>
+            <div>
+              <label class="fld" title="Maximum allowed overbalance across a normally-pressured permeable zone">Differential sticking limit, psi</label>
+              <input id="csDiffLimit" class="inp" type="number" value="2200" step="100">
+            </div>
+            <div>
+              <label class="fld" title="0 = let the mud window decide automatically. Any other value forces exactly that many casing strings by splitting the widest intervals.">Number of casing strings</label>
+              <select id="csNstr" class="inp">
+                <option value="0" selected>Auto (from mud window)</option>
+                <option value="2">2 strings</option>
+                <option value="3">3 strings</option>
+                <option value="4">4 strings</option>
+                <option value="5">5 strings</option>
+                <option value="6">6 strings</option>
+              </select>
+            </div>
+            <div class="hr"></div>
+            <button class="btn primary" onclick="runCasingSeat()">⚙ Calculate Casing Seats</button>
+            <button class="btn" onclick="applySeatsToDesign()" title="Copies the computed seats into the string designs used by StressCheck">↧ Apply Seats to String Designs</button>
+            <div class="note">Bottom-up: from TD upward, each shoe is set at the shallowest depth where the gas-kick EMW (mud + KI·D/S) stays below frac − kick margin. Formation inputs come from the Formation Data tab.</div>
+          </div>
+        </div>
+
+        <div class="grow flex col gap1 scroll-col" style="min-width:0">
+          <div class="panel">
+            <div class="sec-h"><span>Casing Program <span style="font-weight:400" id="csModeTag"></span></span>
+                <span class="flex gap1" style="align-items:center">
+                  <span id="csRankNote" class="note"></span>
+                  <button class="btn small" onclick="seatAdd()" title="Insert a shoe in the widest interval">+ Shoe</button>
+                  <button class="btn small" onclick="seatAuto()" title="Discard manual depths and recompute from the mud window">↺ Auto</button>
+                </span></div>
+            <div class="p1" style="overflow:auto">
+              <table class="grid" id="csTable">
+                <thead><tr>
+                  <th>String</th><th>Hole size</th><th>OD</th><th>Shoe TVD (m)<br><span style="font-weight:400;font-size:9px">editable</span></th>
+                  <th>Mud to drill next (sg)</th><th>Kick EMW @ shoe (sg)</th><th>Frac − KM @ shoe (sg)</th><th>Seat check</th><th></th>
+                </tr></thead>
+                <tbody id="csBody"><tr><td colspan="9" class="l" style="text-align:center;color:#888">Press “Calculate Casing Seats”.</td></tr></tbody>
+              </table>
+              <div id="csWarnings" class="note" style="margin-top:4px"></div>
+            </div>
+          </div>
+          <div class="panel grow flex col" style="min-height:330px">
+            <div class="plot-title"><span>Mud Window &amp; Seat Selection (EMW vs TVD)</span><span class="note">staircase = kick-tolerance walk</span></div>
+            <div class="chart-wrap grow"><canvas id="mudChart"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ STRESSCHECK ============ -->
+      <div id="view-stresscheck" class="grow p1 flex gap1 hide" style="background:#d9d4c8;overflow:hidden;min-height:0">
+        <div class="panel flex col" style="width:404px;flex-shrink:0;min-height:0;overflow-y:auto;overflow-x:hidden">
+          <div class="sec-h"><span>String &amp; Pipe Selection</span></div>
+          <div class="p2 flex col gap1">
+            <div>
+              <label class="fld">Design string</label>
+              <select id="scString" class="inp" onchange="onStringChange()"></select>
+            </div>
+            <div class="flex gap1">
+              <div class="grow"><label class="fld">OD, in</label><select id="scOD" class="inp" onchange="onODChange()"></select></div>
+              <div class="grow"><label class="fld" title="Top of string. Non-zero for a liner, or for an RKB datum offset.">Top, m</label>
+                <input id="scTop" class="inp" type="number" step="1" value="0" onchange="onTopChange()"></div>
+            </div>
+            <div class="sec-h" style="margin:2px -10px 4px">
+              <span>Sections (tapered string)</span>
+              <button class="btn small" onclick="addSection()">+ Section</button>
+            </div>
+            <div style="overflow-x:auto"><table class="grid" id="secTable" style="min-width:100%;table-layout:auto"><thead><tr><th>From m</th><th>To m</th><th>OD in</th><th>Wt lb/ft</th><th>Hole in</th><th>Grade</th><th></th></tr></thead><tbody id="secBody"></tbody></table></div>
+            <div id="pipeProps" class="note mono" style="background:#faf9f6;border:1px solid #d5d0c3;padding:5px"></div>
+            <button class="btn" onclick="autoSelectPipe()" title="Picks the lightest/cheapest pipe meeting all design factors, section by section (NACE-filtered when sour service is on)">🏆 Auto-select minimum pipe</button>
+          </div>
+          <div class="sec-h"><span>Load Case Set <span style="font-weight:400;color:#6b6659" id="lcOwner"></span></span><span class="note" title="These values belong to the selected string only">per string</span></div>
+          <div class="p2 flex col" style="gap:3px">
+            <div id="lcDynamic"></div>
+            <div class="hr"></div>
+            <div class="flex gap1">
+              <div class="grow"><label class="fld">Packer fluid, sg</label><input id="scPkr" class="inp" type="number" value="1.03" step="0.01" oninput="onLCInput()" onchange="onLCChange()"></div>
+              <div class="grow"><label class="fld">Backup grad, psi/ft</label><input id="scBackup" class="inp" type="number" value="0.465" step="0.005" oninput="onLCInput()" onchange="onLCChange()"></div>
+            </div>
+            <div class="flex gap1">
+              <div class="grow"><label class="fld" title="Normalized = rating ÷ load. Vector = scale axial AND pressure together until the collapse limit is reached.">Collapse SF method</label>
+                <select id="scCollMethod" class="inp" onchange="runStressCheck()">
+                  <option value="norm">Normalized (rating/load)</option>
+                  <option value="vector">Vector (V)</option>
+                </select></div>
+              <div class="grow"><label class="fld" title="Base steel price; multiplied by a grade factor for cost estimation">Steel, $/lb</label>
+                <input id="scSteelCost" class="inp" type="number" value="1.00" step="0.05" onchange="runStressCheck()"></div>
+            </div>
+            <button class="btn" onclick="openDF()">✎ Design Factors…</button>
+          </div>
+          <div class="sec-h"><span>Minimum Safety Factors</span></div>
+          <div class="p2" id="sfSummary"></div>
+        </div>
+
+        <div class="grow flex col gap1 scroll-col" style="min-width:0">
+          <div style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:6px;height:460px;flex-shrink:0">
+            <div class="panel flex col"><div class="plot-title"><span>Burst — load vs rating</span><span id="sfBurstBadge"></span></div><div class="chart-wrap grow"><canvas id="burstChart"></canvas></div></div>
+            <div class="panel flex col"><div class="plot-title"><span>Collapse — load vs axially-corrected rating</span><span id="sfCollapseBadge"></span></div><div class="chart-wrap grow"><canvas id="collapseChart"></canvas></div></div>
+            <div class="panel flex col"><div class="plot-title"><span>Axial — effective tension vs pipe body yield</span><span id="sfAxialBadge"></span></div><div class="chart-wrap grow"><canvas id="axialChart"></canvas></div></div>
+            <div class="panel flex col"><div class="plot-title"><span>Triaxial — von Mises vs yield</span><span id="sfVMEBadge"></span></div><div class="chart-wrap grow"><canvas id="vmeChart"></canvas></div></div>
+          </div>
+          <div class="panel">
+            <div class="sec-h"><span>Load Case Results — governing minima along string</span></div>
+      <div id="dbgWrap" style="margin:2px 0 4px 0">
+        <div class="sec-h" style="cursor:pointer" onclick="const b=document.getElementById('dbgBody');b.style.display=b.style.display==='none'?'block':'none';renderDebugTable();">
+          <span>Debug — stress components (Lamé inner wall, psi)</span>
+          <span style="font-weight:400;font-size:9px">depth&nbsp;<input id="dbgZ" class="inp" style="width:64px" type="text" inputmode="decimal" onclick="event.stopPropagation()" onchange="renderDebugTable()">&nbsp;m — click header to toggle</span>
+        </div>
+        <div id="dbgBody" style="display:none"><table class="tbl" id="dbgTable"></table></div>
+      </div>
+            <div class="p1" style="overflow:auto"><table class="grid" id="lcTable"><tbody></tbody></table></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ SCHEMATIC ============ -->
+      <div id="view-schematic" class="grow p1 flex gap1 hide" style="background:#d9d4c8;overflow:hidden;min-height:0">
+        <div class="panel grow flex col">
+          <div class="plot-title"><span>Well Schematic — as designed</span><span class="note">drawn from current string table</span></div>
+          <div class="grow p1" style="display:flex;justify-content:center;background:#fff"><canvas id="schemCanvas" width="560" height="620"></canvas></div>
+        </div>
+        <div class="panel scroll-col" style="width:420px;flex-shrink:0">
+          <div class="sec-h"><span>String Designs (editable)</span><button class="btn small" onclick="addString()">+ Add string</button></div>
+          <div class="p1" style="overflow:auto"><table class="grid" id="strTable"><thead><tr><th>Role</th><th>OD</th><th>Wt</th><th>Grade</th><th>Shoe m</th><th>TOC m</th><th>MW sg</th><th></th></tr></thead><tbody id="strBody"></tbody></table>
+          <div class="note" style="margin-top:5px">Edit any cell — the whole model (seats, loads, charts, schematic, report) updates instantly. Change depth here and it propagates everywhere. Weight &amp; grade are set per string in the StressCheck tab; OD can be changed here or there.</div></div>
+        </div>
+      </div>
+
+      <!-- ============ FORMATION ============ -->
+      <div id="view-formation" class="grow p1 flex gap1 hide" style="background:#d9d4c8;overflow:hidden;min-height:0">
+        <div class="panel" style="width:380px;flex-shrink:0">
+          <div class="sec-h"><span>Pore Pressure &amp; Fracture Gradient (EMW)</span>
+            <button class="btn small" onclick="addFmRow()">+ Row</button></div>
+          <div class="p1"><table class="grid" id="fmTable"><thead><tr><th>TVD m</th><th>Pore sg</th><th>Frac sg</th><th></th></tr></thead><tbody id="fmBody"></tbody></table>
+          <div class="note" style="margin-top:5px">Linear interpolation between rows. These curves drive both CasingSeat and every StressCheck load case. Enter LOT/FIT-calibrated frac values where available.</div>
+          <div class="hr"></div>
+          <div class="sec-h" style="margin:0 -6px 6px"><span>📋 Paste pore &amp; frac data</span></div>
+          <div class="note" style="margin-bottom:4px">Copy three columns from Excel — <b>TVD&nbsp;(m) · Pore&nbsp;(sg) · Frac&nbsp;(sg)</b> — and paste below. Tabs, commas, semicolons or spaces all work. Header lines are ignored.</div>
+          <textarea id="fmPaste" class="inp" style="width:100%;height:120px;font-family:Consolas,monospace;resize:vertical" placeholder="0	1.03	1.44&#10;450	1.04	1.58&#10;900	1.08	1.73&#10;..."></textarea>
+          <div class="flex gap1" style="margin-top:5px">
+            <button class="btn primary" onclick="pasteFm('replace')">↺ Replace table</button>
+            <button class="btn" onclick="pasteFm('append')">＋ Append rows</button>
+          </div>
+          <div id="fmPasteInfo" class="note" style="margin-top:5px"></div>
+          <div id="fmWarn" class="note" style="margin-top:6px;line-height:1.4"></div></div>
+        </div>
+        <div class="panel grow flex col" style="min-height:420px">
+          <div class="plot-title"><span>Formation pressure preview</span></div>
+          <div class="chart-wrap grow"><canvas id="fmChart"></canvas></div>
+        </div>
+      </div>
+
+      <!-- ============ REPORT ============ -->
+      <div id="view-report" class="grow p2 hide scroll-col" style="background:#fff">
+        <div class="flex" style="justify-content:space-between;align-items:center" >
+          <h2 style="margin:4px 0;font-size:16px">Casing Design Report — <span id="rpWell"></span></h2>
+          <button class="btn no-print" onclick="printReport()">🖨 Print / PDF</button>
+          <button class="btn no-print" onclick="downloadAllFigures()">⬇ Save all plots</button>
+        </div>
+        <div id="reportArea" class="note" style="font-size:11px;color:#222"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status bar -->
+  <div class="status-bar">
+    <div><span id="statusText">Ready</span></div>
+    <div style="color:#6b6659;font-size:9.5px">Engine: API TR 5C3 four-regime collapse · Barlow burst (87.5% wall) · Lamé/von Mises triaxial · NACE MR0175 grade filter</div>
+    <div style="color:#4a4438;font-size:9.5px;font-weight:600;white-space:nowrap;padding-left:10px">by Abdulwadod Alkaissy</div>
+  </div>
+</div>
+
+<!-- Design factors modal -->
+<div class="modal-back" id="dfModal">
+  <div class="modal">
+    <div class="title-bar"><span>Design Factors</span><span style="cursor:pointer" onclick="closeDF()">✕</span></div>
+    <div class="p2 flex col gap1">
+      <div class="flex gap1">
+        <div class="grow"><label class="fld">Burst DF</label><input id="dfBurst" class="inp" type="text" inputmode="decimal" value="1.10"></div>
+          <div class="grow" style="align-self:end"><label class="chk" title="StressCheck-style normalized display: SF is divided by its design factor, so 1.00 = exactly meeting the DF. Uncheck for absolute SF = rating / load.">
+            <input type="checkbox" id="sfNorm" checked onchange="runStressCheck()"> Normalized SF (÷DF)</label></div>
+        <div class="grow"><label class="fld">Collapse DF</label><input id="dfCollapse" class="inp" type="text" inputmode="decimal" value="1.00"></div>
+      </div>
+      <div class="flex gap1">
+        <div class="grow"><label class="fld" title="Applies to the tensile axial cases: running weight and overpull">Tension DF</label><input id="dfTension" class="inp" type="text" inputmode="decimal" value="1.30"></div>
+        <div class="grow"><label class="fld">Triaxial DF</label><input id="dfVME" class="inp" type="text" inputmode="decimal" value="1.25"></div>
+      </div>
+      <div class="note">StressCheck defaults: burst 1.10, collapse 1.00, axial 1.30–1.60, triaxial 1.25. A design passes when the minimum safety factor of every enabled load case ≥ its DF.</div>
+      <div class="flex" style="justify-content:flex-end;gap:6px">
+        <button class="btn" onclick="closeDF()">Cancel</button>
+        <button class="btn primary" onclick="closeDF();runStressCheck()">Apply &amp; Recalculate</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Help modal -->
+<div class="modal-back" id="helpModal">
+  <div class="modal" style="max-width:1000px;width:94vw;height:88vh;display:flex;flex-direction:column">
+    <div class="title-bar"><span>BASIRA EDM — Help, Methodology &amp; Workflow</span><span style="cursor:pointer" onclick="document.getElementById('helpModal').classList.remove('open')">✕</span></div>
+    <div class="tabs" style="flex:0 0 auto">
+      <div class="tab active" id="htab-work" onclick="helpTab('work')">Workflow — how to use</div>
+      <div class="tab" id="htab-meth" onclick="helpTab('meth')">Methodology</div>
+      <div class="tab" id="htab-cases" onclick="helpTab('cases')">Load cases</div>
+      <div class="tab" id="htab-ref" onclick="helpTab('ref')">Symbols &amp; references</div>
+    </div>
+    <div class="p2" style="flex:1;min-height:0;overflow:auto;background:#fff">
+
+    <!-- ============ WORKFLOW ============ -->
+    <div id="hv-work">
+      <h3 style="margin:0 0 6px 0;font-size:13px;color:#123f6b">Standard working sequence</h3>
+      <p class="note">Follow the tabs left to right. Each step feeds the next, so the engine always
+        recalculates automatically after any change — there is no separate "solve" button.</p>
+
+      <h4 style="font-size:11.5px;color:#6b3a12;margin:10px 0 3px">Step 0 — Compass (directional survey, optional)</h4>
+      <ol class="note" style="margin:0 0 0 16px;padding:0">
+        <li>Open the <b>Compass</b> tab and enter directional survey stations (<b>MD</b>, <b>Inc</b>, <b>Azi</b>) —
+            row by row or pasted from Excel — or leave the default two-station vertical profile for a vertical well.</li>
+        <li>The engine solves TVD, N/S, E/W and dogleg severity (DLS) between stations by the
+            <b>minimum-curvature method</b>. The Compass Rose plots the plan-view path; the profile chart plots TVD vs
+            vertical section.</li>
+        <li>Press <b>Apply Computed TVD to CasingSeat TD</b> to carry the survey's true vertical depth into the
+            <b>Well TD</b> field used by CasingSeat and StressCheck below.</li>
+      </ol>
+
+      <h4 style="font-size:11.5px;color:#6b3a12;margin:10px 0 3px">Step 1 — Formation Data</h4>
+      <ol class="note" style="margin:0 0 0 16px;padding:0">
+        <li>Open the <b>Formation Data</b> tab.</li>
+        <li>Enter <b>TVD (m)</b>, <b>pore pressure (sg)</b> and <b>fracture gradient (sg)</b> row by row,
+            or paste all three columns straight from Excel with the paste box.</li>
+        <li>Values above 5 are auto-detected as ppg and converted to sg (÷8.345); a status message confirms it.</li>
+        <li>Check the plotted profiles look continuous — the whole design rests on this table.</li>
+      </ol>
+
+      <h4 style="font-size:11.5px;color:#6b3a12;margin:10px 0 3px">Step 2 — CasingSeat (seat selection)</h4>
+      <ol class="note" style="margin:0 0 0 16px;padding:0">
+        <li>Set <b>Well TD</b>, <b>trip margin</b>, <b>kick margin</b>, <b>kick intensity</b> and the
+            <b>differential-sticking limit</b>.</li>
+        <li>Choose the solution method (<b>Bottom-up</b> walks from TD upward) and either fix the number of
+            strings or leave <b>Auto</b> to let the mud window decide.</li>
+        <li>Press <b>Calculate Casing Seats</b>. Read the staircase on the Mud Window plot and the
+            PASS/TD flags in the Casing Program table.</li>
+        <li>Press <b>Apply Seats to String Designs</b> to push the shoes into the tubular design.</li>
+      </ol>
+
+      <h4 style="font-size:11.5px;color:#6b3a12;margin:10px 0 3px">Step 3 — Tubular design (per string)</h4>
+      <ol class="note" style="margin:0 0 0 16px;padding:0">
+        <li>Select a string in the <b>Well Explorer</b> tree on the left.</li>
+        <li>In <b>String Sections</b> set OD, weight, grade and the bottom depth of each section.
+            Tapered strings: add a row per section — the engine evaluates <i>every</i> section and reports
+            the minimum safety factor over the whole string.</li>
+        <li>Set <b>mud weight (sg)</b>, <b>TOC</b> and hole size for the string.</li>
+        <li>Enable <b>H<sub>2</sub>S sour service</b> and set the service temperature if required; the grade
+            list is then filtered to NACE-acceptable grades.</li>
+      </ol>
+
+      <h4 style="font-size:11.5px;color:#6b3a12;margin:10px 0 3px">Step 4 — StressCheck (load cases)</h4>
+      <ol class="note" style="margin:0 0 0 16px;padding:0">
+        <li>Choose the <b>External profile</b> (burst backup) at the top of the load-case panel —
+            this is the single most influential setting when comparing against StressCheck.</li>
+        <li>Tick the burst, collapse and axial load cases that apply, and edit each case's parameters.
+            Parameters are pre-filled from the well data.</li>
+        <li>Production-only cases (e.g. Tubing Leak) are greyed out on drilling strings by design.</li>
+        <li>Read the <b>Load Case Results</b> table: governing depth, load, rating at that depth,
+            minimum SF and PASS/FAIL for every case.</li>
+        <li>Open the <b>Debug</b> strip to inspect σ<sub>h</sub>, σ<sub>r</sub>, σ<sub>a</sub> and the
+            von Mises stress for every case at any depth you type in. It is read-only and never changes results.</li>
+      </ol>
+
+      <h4 style="font-size:11.5px;color:#6b3a12;margin:10px 0 3px">Step 5 — Design factors &amp; SF display</h4>
+      <ol class="note" style="margin:0 0 0 16px;padding:0">
+        <li>Set burst / collapse / tension / triaxial design factors in <b>Design Factors</b>.</li>
+        <li><b>Normalized SF</b> (default, matches StressCheck's "Norm" columns): displayed SF = SF ÷ DF,
+            pass at ≥ 1.00. Untick it for <b>Absolute</b> SF = rating ÷ load, pass at ≥ DF.</li>
+        <li>Always confirm both packages are on the same display mode before comparing numbers.</li>
+      </ol>
+
+      <h4 style="font-size:11.5px;color:#6b3a12;margin:10px 0 3px">Step 6 — Report &amp; output</h4>
+      <ol class="note" style="margin:0 0 0 16px;padding:0">
+        <li>Open <b>Design Report</b> for the casing program, governing safety factors, seat-selection basis
+            and all design plots.</li>
+        <li><b>Print / PDF</b> re-renders every chart at full size before printing, so plots are never clipped.</li>
+        <li><b>Save PNG</b> under any figure exports that single plot; <b>Save all plots</b> exports all of them,
+            named by well and figure number.</li>
+        <li><b>Save</b> writes the whole project to JSON; <b>Open</b> restores it (legacy ppg projects convert automatically).</li>
+      </ol>
+
+      <h4 style="font-size:11.5px;color:#a00;margin:10px 0 3px">Practical cautions</h4>
+      <ul class="note" style="margin:0 0 0 16px;padding:0">
+        <li>Section order matters on tapered strings — put the heavier/stronger pipe where the load is worst
+            (usually the top for burst).</li>
+        <li>Burst load cases are only as good as the external profile chosen; for surface and conductor strings
+            <i>Pore pressure w/ seawater gradient</i> is normally correct.</li>
+        <li>The engine is a single-string design tool, exactly like StressCheck; strings are checked independently.</li>
+      </ul>
+    </div>
+
+    <!-- ============ METHODOLOGY ============ -->
+    <div id="hv-meth" class="hide">
+      <h3 style="margin:0 0 6px 0;font-size:13px;color:#123f6b">Engine methodology</h3>
+      <p class="note">Depths in metres, densities in specific gravity, pressures in psi.
+        Hydrostatic pressure: <b>P = 0.433 · ρ(sg) · TVD(ft)</b>.</p>
+
+      <h4 style="font-size:11.5px;color:#6b3a12;margin:10px 0 3px">Collapse — API TR 5C3 four-regime model</h4>
+      <div class="note">
+        Empirical factors are computed from the (tension-reduced) yield strength:<br>
+        <code>A = 2.8762 + 0.10679e-5·Yp + 0.21301e-10·Yp² − 0.53132e-16·Yp³</code><br>
+        <code>B = 0.026233 + 0.50609e-6·Yp</code><br>
+        <code>C = −465.93 + 0.030867·Yp − 0.10483e-7·Yp² + 0.36989e-13·Yp³</code><br>
+        The regime is selected by D/t:
+        <table class="tbl" style="margin:4px 0"><thead><tr><th>Regime</th><th>Collapse pressure</th></tr></thead><tbody>
+        <tr><td class="l">Yield</td><td>P<sub>c</sub> = 2·Y<sub>p</sub>·(D/t − 1)/(D/t)²</td></tr>
+        <tr><td class="l">Plastic</td><td>P<sub>c</sub> = Y<sub>p</sub>·(A/(D/t) − B) − C</td></tr>
+        <tr><td class="l">Transition</td><td>P<sub>c</sub> = Y<sub>p</sub>·(F/(D/t) − G)</td></tr>
+        <tr><td class="l">Elastic</td><td>P<sub>c</sub> = 46.95e6 / [(D/t)·(D/t − 1)²]</td></tr>
+        </tbody></table>
+        <b>Combined loading:</b> where axial stress is tensile the effective yield is reduced,
+        <code>Y<sub>pe</sub> = Y<sub>p</sub>·(√(1 − 0.75r²) − 0.5r)</code>, r = σ<sub>a</sub>/Y<sub>p</sub>,
+        applied point-by-point so the collapse rating varies with depth as tension changes.
+      </div>
+
+      <h4 style="font-size:11.5px;color:#6b3a12;margin:10px 0 3px">Burst — Barlow internal yield</h4>
+      <div class="note"><code>P<sub>burst</sub> = 0.875 · 2 · Y<sub>p</sub> · t / OD</code> — 87.5 % minimum wall,
+        t = (OD − ID)/2.</div>
+
+      <h4 style="font-size:11.5px;color:#6b3a12;margin:10px 0 3px">Triaxial — Lamé / von Mises</h4>
+      <div class="note">
+        Thick-wall stresses at the inner wall:<br>
+        <code>σ<sub>z</sub> = F<sub>a</sub>/A<sub>s</sub></code>,
+        <code>σ<sub>h</sub> = [p<sub>i</sub>(r<sub>i</sub>²+r<sub>o</sub>²) − 2p<sub>o</sub>r<sub>o</sub>²]/(r<sub>o</sub>²−r<sub>i</sub>²)</code>,
+        <code>σ<sub>r</sub> = −p<sub>i</sub></code><br>
+        <code>σ<sub>VME</sub> = √{ ½[(σ<sub>z</sub>−σ<sub>h</sub>)² + (σ<sub>h</sub>−σ<sub>r</sub>)² + (σ<sub>r</sub>−σ<sub>z</sub>)²] }</code><br>
+        Each load case is paired with <b>its own external pressure profile</b> and with the
+        <b>post-cement (service) axial</b> profile, because service pressures act on a cemented string.
+        The design envelope solves σ<sub>VME</sub> = Y<sub>limit</sub> on the burst branch (p<sub>o</sub> = 0)
+        and collapse branch (p<sub>i</sub> = 0) to draw the von Mises ellipse.
+      </div>
+
+      <h4 style="font-size:11.5px;color:#6b3a12;margin:10px 0 3px">Axial</h4>
+      <div class="note">
+        Buoyancy factor <code>BF = 1 − ρ<sub>mud</sub>(sg)/7.84</code>; body yield
+        <code>P<sub>y</sub> = 0.7854·(OD² − ID²)·Y<sub>p</sub></code>.<br>
+        <b>Running in hole</b> adds the shock load from stopping the string instantaneously,
+        <code>F<sub>shock</sub> = 0.9161 · V<sub>avg</sub> · A<sub>s</sub> · √(E·ρ<sub>steel</sub>)</code>
+        (the peak-to-average factor of 1.5 is already contained in the coefficient).<br>
+        <b>Post-cement static</b> uses the piston formulation with the real fluid columns —
+        displacement fluid inside, mud above TOC and slurry below outside — because the cement is still fluid
+        immediately after the job and does not yet support the pipe.<br>
+        <b>Service loads</b> aggregate the post-cement profile with the end-piston force from the largest
+        enabled internal service pressure and the thermal term
+        <code>ΔF = −α·E·A<sub>s</sub>·ΔT</code> (α = 6.9e-6/°F, E = 30e6 psi).
+      </div>
+
+      <h4 style="font-size:11.5px;color:#6b3a12;margin:10px 0 3px">Safety factor display</h4>
+      <div class="note">
+        <b>Absolute:</b> SF = rating ÷ load, minimum tolerable value = the design factor.<br>
+        <b>Normalized:</b> SF = rating ÷ (load × DF), minimum tolerable value = 1.00 by definition.
+        This matches the "Norm" columns of StressCheck's Well Summary. The triaxial default DF of 1.25
+        is 8/7 of the burst DF of 1.10, reflecting the 12.5 % wall reduction in the API burst rating.
+      </div>
+
+      <h4 style="font-size:11.5px;color:#6b3a12;margin:10px 0 3px">CasingSeat</h4>
+      <div class="note">
+        Mud to drill the next hole = maximum pore pressure over that section + trip margin.
+        Kick EMW at the shoe = mud + KI·(D/S). A shoe is accepted at the shallowest depth where the
+        kick EMW stays below (fracture − kick margin). Differential sticking is screened as the worst
+        overbalance against the shallowest normally-pressured sand, compared with the specified limit.
+      </div>
+
+      <h4 style="font-size:11.5px;color:#6b3a12;margin:10px 0 3px">Sour service</h4>
+      <div class="note">NACE MR0175 / ISO 15156-2 grade acceptability, applied as a temperature-dependent
+        filter on the grade list when H<sub>2</sub>S service is enabled.</div>
+
+      <h4 style="font-size:11.5px;color:#a00;margin:10px 0 3px">Known limitations</h4>
+      <ul class="note" style="margin:0 0 0 16px;padding:0">
+        <li>Gas kick uses a static envelope of the Driller's-Method bottom-hole pressure, not a full
+            bubble-migration circulation with a Redlich-Kwong gas EOS.</li>
+        <li>Service loads omit buckling and bending; landing pick-up / slack-off is not yet an input.</li>
+        <li>Ratings use nominal yield — temperature de-rating of yield strength is not applied.</li>
+        <li>The Compass tab computes true TVD/N/E/DLS from a directional survey by minimum curvature, but the
+            stress-check engine itself still treats the string as straight — dogleg-induced bending pseudo-loads
+            are not added to the axial/triaxial loads.</li>
+      </ul>
+    </div>
+
+    <!-- ============ LOAD CASES ============ -->
+    <div id="hv-cases" class="hide">
+      <h3 style="margin:0 0 6px 0;font-size:13px;color:#123f6b">Load cases and pressure profiles</h3>
+      <h4 style="font-size:11.5px;color:#6b3a12;margin:8px 0 3px">Burst</h4>
+      <table class="tbl"><thead><tr><th>Case</th><th>Internal pressure basis</th></tr></thead><tbody>
+        <tr><td class="l">Displacement to gas</td><td class="l">Pore pressure at influx, gas gradient upward; fracture at shoe caps the interface; mud above the gas/mud interface.</td></tr>
+        <tr><td class="l">Gas kick</td><td class="l">P<sub>bh</sub> = (max mud weight + kick intensity)·0.433·TVD<sub>influx</sub>, limited to fracture at shoe.</td></tr>
+        <tr><td class="l">Frac @ shoe, gas above</td><td class="l">P = P<sub>frac</sub>(+MOE) − gas gradient up to the depth of interest.</td></tr>
+        <tr><td class="l">Lost returns w/ water</td><td class="l">Anchored at fracture at the shoe; seawater above the interface, mud below.</td></tr>
+        <tr><td class="l">Surface protection (BOP)</td><td class="l">Surface pressure from fracture at shoe less a seawater column, then a full gas gradient downward.</td></tr>
+        <tr><td class="l">Green cement test</td><td class="l">Test pressure on displacement fluid above the float collar; slurry-anchored below.</td></tr>
+        <tr><td class="l">Gas over mud</td><td class="l">Gas over the upper fraction of the column, mud below; pore- or fracture-anchored.</td></tr>
+        <tr><td class="l">Pressure test</td><td class="l">Test pressure applied above the plug depth only, on the mud column.</td></tr>
+        <tr><td class="l">Tubing leak <i>(production only)</i></td><td class="l">Shut-in tubing pressure applied to the packer-fluid column.</td></tr>
+      </tbody></table>
+
+      <h4 style="font-size:11.5px;color:#123f6b;margin:10px 0 3px">Collapse</h4>
+      <table class="tbl"><thead><tr><th>Case</th><th>Internal pressure basis</th></tr></thead><tbody>
+        <tr><td class="l">Full / partial evacuation</td><td class="l">Atmospheric above the mud level, mud gradient below it.</td></tr>
+        <tr><td class="l">Lost circulation (mud drop)</td><td class="l">max{P<sub>atm</sub>, P<sub>atm</sub> + P<sub>pore</sub> − mud column to the loss depth}.</td></tr>
+        <tr><td class="l">Cementing</td><td class="l">Displacement fluid inside; mud above TOC and slurry below outside.</td></tr>
+        <tr><td class="l">Fluid gradients + pore</td><td class="l">Mud above TOC, fluid or pore gradient below, with optional wellhead pressure.</td></tr>
+        <tr><td class="l">Drill ahead</td><td class="l">Current-string mud inside, next-hole mud outside.</td></tr>
+      </tbody></table>
+
+      <h4 style="font-size:11.5px;color:#123f6b;margin:10px 0 3px">External (backup) profiles for burst</h4>
+      <table class="tbl"><thead><tr><th>Profile</th><th>Definition</th></tr></thead><tbody>
+        <tr><td class="l">Pore pressure w/ seawater gradient</td><td class="l">Linear from 0 psig at ground level to pore pressure at the shoe. Normal choice for surface and conductor strings.</td></tr>
+        <tr><td class="l">Mud &amp; cement mix-water</td><td class="l">Mud density to TOC, then cement mix-water density to the shoe.</td></tr>
+        <tr><td class="l">Fixed gradient</td><td class="l">Constant psi/ft backup, retained for back-compatibility.</td></tr>
+      </tbody></table>
+      <p class="note" style="margin-top:4px">Green Cement keeps its own self-described external profile regardless of this selection.</p>
+
+      <h4 style="font-size:11.5px;color:#123f6b;margin:10px 0 3px">Axial</h4>
+      <table class="tbl"><thead><tr><th>Case</th><th>Basis</th></tr></thead><tbody>
+        <tr><td class="l">Running in hole</td><td class="l">Buoyed weight plus shock load at the specified average running speed.</td></tr>
+        <tr><td class="l">Overpull</td><td class="l">Buoyed weight plus a surface overpull force.</td></tr>
+        <tr><td class="l">Pre-cement static</td><td class="l">Buoyed weight before cementing, with an optional applied surface force.</td></tr>
+        <tr><td class="l">Post-cement static</td><td class="l">Piston formulation immediately after the cement job.</td></tr>
+        <tr><td class="l">Green cement test</td><td class="l">Adds the full piston force of the test pressure on the plug.</td></tr>
+        <tr><td class="l">Service loads</td><td class="l">Post-cement profile plus end-piston and thermal terms.</td></tr>
+      </tbody></table>
+    </div>
+
+    <!-- ============ REFERENCES ============ -->
+    <div id="hv-ref" class="hide">
+      <h3 style="margin:0 0 6px 0;font-size:13px;color:#123f6b">Symbols</h3>
+      <table class="tbl"><thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead><tbody>
+        <tr><td class="l">Y<sub>p</sub></td><td class="l">Specified minimum yield strength of the grade</td><td>psi</td></tr>
+        <tr><td class="l">OD, ID, t</td><td class="l">Outside / inside diameter, wall thickness</td><td>in</td></tr>
+        <tr><td class="l">D/t</td><td class="l">Diameter to thickness ratio (collapse regime selector)</td><td>—</td></tr>
+        <tr><td class="l">A<sub>s</sub>, A<sub>i</sub>, A<sub>o</sub></td><td class="l">Steel cross-section, inside area, outside area</td><td>in²</td></tr>
+        <tr><td class="l">p<sub>i</sub>, p<sub>o</sub></td><td class="l">Internal and external pressure at depth</td><td>psi</td></tr>
+        <tr><td class="l">σ<sub>h</sub>, σ<sub>r</sub>, σ<sub>a</sub></td><td class="l">Hoop, radial and axial stress at the inner wall</td><td>psi</td></tr>
+        <tr><td class="l">EMW</td><td class="l">Equivalent mud weight</td><td>sg</td></tr>
+        <tr><td class="l">KI, KM</td><td class="l">Kick intensity, kick margin</td><td>sg</td></tr>
+        <tr><td class="l">MOE</td><td class="l">Fracture margin of error — EMW allowed above fracture (added)</td><td>sg</td></tr>
+        <tr><td class="l">TOC</td><td class="l">Top of cement</td><td>m</td></tr>
+        <tr><td class="l">DF</td><td class="l">Design factor</td><td>—</td></tr>
+        <tr><td class="l">MD, Inc, Azi</td><td class="l">Measured depth, inclination from vertical, azimuth from north (Compass tab)</td><td>m, °, °</td></tr>
+        <tr><td class="l">DLS</td><td class="l">Dogleg severity — curvature between two survey stations</td><td>°/30 m</td></tr>
+        <tr><td class="l">VS</td><td class="l">Vertical section — horizontal displacement projected onto a chosen azimuth</td><td>m</td></tr>
+      </tbody></table>
+
+      <h3 style="margin:10px 0 6px 0;font-size:13px;color:#123f6b">Unit conventions</h3>
+      <ul class="note" style="margin:0 0 0 16px;padding:0">
+        <li>Depth in metres (TVD), pressure in psi, density in specific gravity.</li>
+        <li>Density entries above 5 are treated as ppg and converted automatically (÷ 8.345).</li>
+        <li>Gas gradients stay in psi/ft — they are gradients, not densities.</li>
+      </ul>
+
+      <h3 style="margin:10px 0 6px 0;font-size:13px;color:#123f6b">Standards</h3>
+      <ul class="note" style="margin:0 0 0 16px;padding:0">
+        <li>API TR 5C3 / ISO 10400 — collapse and internal yield ratings.</li>
+        <li>API 5CT — casing grades and dimensional data.</li>
+        <li>NACE MR0175 / ISO 15156-2 — materials for H<sub>2</sub>S service.</li>
+        <li>Landmark StressCheck Load Case Overview — load-case construction and pressure profiles.</li>
+      </ul>
+
+      <p class="note" style="margin-top:12px;padding-top:6px;border-top:1px solid #ccc">
+        BASIRA EDM — CasingSeat &amp; StressCheck engine · <b>by Abdulwadod Alkaissy</b>
+      </p>
+    </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================= BASIRA EDM v2.1 — real computation engine =================
+   Depths in METERS throughout the UI/state; physics converts internally
+   (hydrostatics: 0.433 psi/ft per sg). Densities site-wide in sg. Pipe OD in inches, weight lb/ft.
+   API TR 5C3 collapse (4 regimes + combined loading), Barlow burst,
+   Lamé/von Mises triaxial + design envelope, CasingSeat bottom-up/top-down. */
+
+"use strict";
+
+const FT = 3.28084;                       // ft per meter
+const PSI = (sg, m) => 0.433 * sg * (m * FT);     // hydrostatic psi at depth m (densities in sg)
+
+/* Auto-detect ppg entries and convert to sg. Real fluid densities never exceed
+   ~3 sg (heaviest cement ≈ 2.4), while ppg values start around 7 — so any density
+   above 5 is unambiguously ppg and is divided by 8.345. */
+const toSG = v => (Number.isFinite(v) && v > 5) ? +(v/8.345).toFixed(3) : v;
+/* Load-case parameter keys that hold densities (auto-convert on entry). */
+const LC_DENSITY_KEYS = new Set(["dispMW","kickMaxMW","lostH2OMW","testMW","greenLead",
+  "greenDispl","gasMudMW","evacMW","lostMW","cmtW","cmtDispl","fgAbove","fgBelow",
+  "pkr","extMixW",
+  /* EMW-type margins are also sg; >5 means the user typed ppg */
+  "dispFracMOE","kickFracMOE","fracGasMOE","lostH2OMOE","bopMOE","gasMudMOE","kickInt"]);
+
+/* ---------- API 5CT grade catalog ----------
+   yp   = specified minimum yield strength, psi. In API 5CT the grade number IS the minimum
+          yield in ksi (H40→40, M65→65, R95→95, C110→110 …); every grade in the fetched
+          vendor table follows this rule, so M-65 and R-95 follow it too.
+   naceMinT = minimum service temperature (°C) at which the grade is acceptable for sour
+          service per NACE MR0175 / ISO 15156-2:2020 Table A.3. 0 = acceptable at ALL
+          temperatures. null = not listed as acceptable.
+   Note this is a materials-selection screen only: actual qualification also depends on
+   H2S partial pressure, pH, chlorides and hardness, which are outside this tool. */
+const GRADES = {
+  "H-40":  {yp: 40000,  naceMinT: 0,    cost: 0.90},
+  "J-55":  {yp: 55000,  naceMinT: 0,    cost: 1.00},
+  "K-55":  {yp: 55000,  naceMinT: 0,    cost: 1.02},
+  "M-65":  {yp: 65000,  naceMinT: 0,    cost: 1.08},
+  "C-75":  {yp: 75000,  naceMinT: 0,    cost: 1.20},   // C75 — sour service, any temperature
+  "L-80":  {yp: 80000,  naceMinT: 0,    cost: 1.25},   // L80 Type 1
+  "C-90":  {yp: 90000,  naceMinT: 0,    cost: 1.45},   // C90 Type 1
+  "T-95":  {yp: 95000,  naceMinT: 0,    cost: 1.55},   // T95 Type 1
+  "N-80Q": {yp: 80000,  naceMinT: 65,   cost: 1.22},
+  "R-95":  {yp: 95000,  naceMinT: 65,   cost: 1.38},
+  "C-110": {yp: 110000, naceMinT: 65,   cost: 1.75},
+  "N-80":  {yp: 80000,  naceMinT: 80,   cost: 1.18},   // N80 Type 1
+  "P-110": {yp: 110000, naceMinT: 80,   cost: 1.60},
+  "Q-125": {yp: 125000, naceMinT: 107,  cost: 1.85},
+  "C-95":  {yp: 95000,  naceMinT: null, cost: 1.40}    // not listed in ISO 15156-2 Table A.3
+};
+const GRADE_ORDER = Object.keys(GRADES).sort((a,b)=> GRADES[a].yp - GRADES[b].yp || a.localeCompare(b));
+
+function serviceTemp(){ return numOr("scTempC", 100); }
+/* Sour-service acceptability is temperature dependent — a binary yes/no wrongly bans P-110
+   from hot sour wells, where Table A.3 permits it above 80 °C. */
+function naceOK(grade, tC){
+  const g = GRADES[grade]; if (!g) return false;
+  if (g.naceMinT === null) return false;
+  return (tC === undefined ? serviceTemp() : tC) >= g.naceMinT;
+}
+function naceNote(grade){
+  const g = GRADES[grade];
+  if (!g || g.naceMinT === null) return "not listed in ISO 15156-2 Table A.3";
+  return g.naceMinT === 0 ? "acceptable at all temperatures" : "acceptable at ≥ " + g.naceMinT + " °C only";
+}
+
+
+/* OD (in) → [weight lb/ft, ID in] (API 5CT plain-end) */
+const PIPES = {
+  "4.5": [[9.5, 4.090, 3.965], [10.5, 4.050, 3.926], [11.6, 4.000, 3.875], [13.5, 3.920, 3.795], [15.1, 3.826, 3.701], [16.6, 3.754, 3.629], [18.9, 3.640, 3.515], [21.5, 3.500, 3.375], [23.7, 3.380, 3.255], [26.1, 3.240, 3.115]],
+  "5": [[11.5, 4.560, 4.435], [13, 4.494, 4.396], [15, 4.408, 4.283], [18, 4.276, 4.151], [20.3, 4.184, 4.059], [21.4, 4.126, 4.001], [23.2, 4.044, 3.919], [24.1, 4.000, 3.875], [26.7, 3.876, 3.751]],
+  "5.5": [[14, 5.012, 4.887], [15.5, 4.950, 4.825], [17, 4.892, 4.767], [20, 4.778, 4.653], [23, 4.670, 4.545], [26, 4.548, 4.423], [28.4, 4.440, 4.315], [29.7, 4.376, 4.251], [32.3, 4.276, 4.151], [35.3, 4.126, 4.001], [38, 4.000, 3.875], [40.5, 3.876, 3.751], [43.1, 3.750, 3.625]],
+  "6.625": [[17, 6.135, 6.010], [20, 6.049, 5.924], [24, 5.921, 5.796], [28, 5.791, 5.666], [32, 5.675, 5.550], [34, 5.595, 5.470]],
+  "7": [[17, 6.538, 6.413], [20, 6.456, 6.331], [23, 6.366, 6.241], [26, 6.276, 6.151], [29, 6.184, 6.059], [32, 6.094, 5.969], [35, 6.004, 5.879], [38, 5.920, 5.795], [42.7, 5.750, 5.625], [46.4, 5.626, 5.501], [50.1, 5.500, 5.375], [53.6, 5.376, 5.251], [57.1, 5.250, 5.125]],
+  "7.625": [[24, 7.025, 6.900], [26.4, 6.969, 6.844], [29.7, 6.875, 6.750], [33.7, 6.765, 6.640], [39, 6.625, 6.500], [42.5, 6.501, 6.376], [45.3, 6.435, 6.310], [47.1, 6.375, 6.250], [51.2, 6.251, 6.126], [55.3, 6.125, 6.000]],
+  "8.625": [[24, 8.097, 7.972], [28, 8.017, 7.892], [32, 7.921, 7.796], [36, 7.825, 7.700], [38, 7.775, 7.650], [40, 7.725, 7.600], [44, 7.625, 7.500], [49, 7.511, 7.386], [52, 7.435, 7.310]],
+  "9.625": [[29.3, 9.063, 8.907], [32.3, 9.001, 8.845], [36, 8.921, 8.765], [40, 8.835, 8.679], [43.5, 8.755, 8.599], [47, 8.681, 8.525], [53.5, 8.535, 8.379], [58.4, 8.435, 8.279], [59.4, 8.407, 8.251], [61.1, 8.375, 8.219], [64.9, 8.281, 8.125], [70.3, 8.157, 8.001], [71.8, 8.125, 7.969], [75.6, 8.031, 7.875]],
+  "10.75": [[32.75, 10.192, 10.036], [40.5, 10.050, 9.894], [45.5, 9.950, 9.794], [51, 9.850, 9.694], [55.5, 9.760, 9.604], [60.7, 9.660, 9.504], [65.7, 9.560, 9.404], [71.1, 9.450, 9.294], [73.2, 9.406, 9.250], [79.2, 9.282, 9.126], [81, 9.250, 9.094], [85.3, 9.156, 9.000]],
+  "11.75": [[42, 11.084, 10.928], [47, 11.000, 10.844], [54, 10.880, 10.724], [60, 10.772, 10.616], [65, 10.682, 10.526], [71, 10.586, 10.430], [75, 10.514, 10.358], [79, 10.438, 10.282], [83, 10.368, 10.212], [87.2, 10.282, 10.126]],
+  "13.375": [[48, 12.715, 12.559], [54.5, 12.615, 12.459], [61, 12.515, 12.359], [68, 12.415, 12.259], [72, 12.347, 12.191], [77, 12.275, 12.119], [80.7, 12.215, 12.059], [83, 12.175, 12.019], [85, 12.159, 12.003], [86, 12.125, 11.969], [91, 12.055, 11.899], [92, 12.031, 11.875], [96, 11.975, 11.819], [98, 11.937, 11.781], [100.3, 11.907, 11.751]],
+  "16": [[52.5, 15.396, 15.209], [55, 15.374, 15.188], [65, 15.250, 15.063], [70, 15.198, 15.011], [75, 15.124, 14.938], [84, 15.010, 14.823], [94.5, 14.876, 14.689], [109, 14.688, 14.501], [118, 14.570, 14.383], [128, 14.438, 14.251]],
+  "18.625": [[78, 17.855, 17.668], [87.5, 17.755, 17.568], [94.5, 17.689, 17.502], [99, 17.625, 17.438], [105, 17.563, 17.376], [109, 17.491, 17.304], [115, 17.437, 17.250], [133, 17.239, 17.052], [138, 17.185, 16.998]],
+  "20": [[84.75, 19.190, 19.002], [90, 19.166, 18.979], [94, 19.124, 18.936], [106.5, 19.000, 18.812], [118.5, 18.874, 18.687], [133, 18.730, 18.542], [141.9, 18.624, 18.436], [147, 18.582, 18.395], [169, 18.376, 18.188]],
+};
+/* Standard bit sizes, inches. Hole size is a choice, not a fixed consequence of the casing
+   OD — the same string is run in different holes depending on the programme. */
+const HOLE_SIZES = [6, 6.125, 6.5, 6.75, 7.875, 8.375, 8.5, 8.75, 9.5, 9.875, 10.625, 11,
+                    12.25, 12.5, 13.5, 14.75, 16, 17.5, 20, 22, 24, 26, 28, 30, 36];
+const FRAC = {0:"", 0.125:"-1/8", 0.25:"-1/4", 0.375:"-3/8", 0.5:"-1/2",
+              0.625:"-5/8", 0.75:"-3/4", 0.875:"-7/8"};
+function fmtHole(v){
+  if (v == null) return "—";
+  const w = Math.floor(v + 1e-9), f = +(v - w).toFixed(3);
+  return w + (FRAC[f] !== undefined ? FRAC[f] : "." + String(f).slice(2)) + '"';
+}
+/* Default bit size normally run for each casing OD — the starting point, freely overridden. */
+const HOLE_FOR_OD = {"20":26, "18.625":24, "16":20, "13.375":17.5, "11.75":14.75,
+                     "10.75":13.5, "9.625":12.25, "8.625":11, "7.625":9.875, "7":8.5,
+                     "6.625":8.5, "5.5":7.875, "5":6.5, "4.5":6.125};
+/* Only holes larger than the pipe can physically be used. */
+function holeOptions(od, sel){
+  const D = parseFloat(od);
+  return HOLE_SIZES.filter(h=> h > D + 0.05)
+    .map(h=>`<option value="${h}" ${Math.abs(h-sel)<0.001?"selected":""}>${fmtHole(h)}</option>`).join("");
+}
+function defaultHole(od){ return HOLE_FOR_OD[od] || HOLE_SIZES.find(h=> h > parseFloat(od) + 0.5); }
+
+/* Show depths with a thousands separator but preserve any decimals the user typed
+   (1058.47 -> "1,058.47", 870 -> "870"). Used by every depth input. */
+function fmtDepth(v){
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "";
+  const dec = Math.abs(n % 1) > 1e-9;
+  return n.toLocaleString("en-US", {minimumFractionDigits: dec?2:0, maximumFractionDigits: 3});
+}
+
+/* ---- Casing roles ---------------------------------------------------------
+   A string's role (Conductor, Surface, Intermediate, Production, Liner) is an
+   editable property. The same role may repeat — two intermediates are normal —
+   so duplicates are auto-numbered (Intermediate 1, Intermediate 2) for display. */
+const ROLES = ["Conductor", "Surface", "Intermediate", "Production", "Liner", "Custom"];
+/* the "base" role is stored on the string; numbering is derived at render time */
+function baseRole(name){
+  // strip any trailing number so "Intermediate 2" -> "Intermediate"
+  const m = String(name||"").match(/^(.*?)(?:\s+\d+)?$/);
+  const b = (m ? m[1] : name).trim();
+  return ROLES.includes(b) ? b : (name||"Custom");
+}
+/* re-number any role that appears more than once, top-down */
+function renumberRoles(){
+  const counts = {};
+  well.strings.forEach(s=> counts[s.role] = (counts[s.role]||0) + 1);
+  const seen = {};
+  well.strings.forEach(s=>{
+    if (counts[s.role] > 1 && ROLES.includes(s.role) && s.role !== "Custom"){
+      seen[s.role] = (seen[s.role]||0) + 1;
+      s.displayName = s.role + " " + seen[s.role];      // Intermediate 1, Intermediate 2 ...
+    } else {
+      s.displayName = s.customName || s.role;
+    }
+  });
+}
+/* the label shown everywhere: prefer the derived displayName, fall back to name */
+function roleLabel(s){ return s.displayName || s.customName || s.role || s.name || "String"; }
+const OD_SEQ = ["20","16","13.375","9.625","7","5.5"];   // program pool top→bottom
+/* Object key order puts "5","7","16","20" before "13.375" etc. Always use this instead. */
+const OD_LIST = Object.keys(PIPES).sort((a,b)=> parseFloat(b) - parseFloat(a));
+function odOptions(sel){
+  return OD_LIST.map(od=>`<option value="${od}" ${od===sel?"selected":""}>${fmtOD(od)}</option>`).join("");
+}
+
+/* ---------- API TR 5C3 ---------- */
+function apiCollapseFactors(yp){
+  const A = 2.8762 + 0.10679e-5*yp + 0.21301e-10*yp*yp - 0.53132e-16*yp*yp*yp;
+  const B = 0.026233 + 0.50609e-6*yp;
+  const C = -465.93 + 0.030867*yp - 0.10483e-7*yp*yp + 0.36989e-13*yp*yp*yp;
+  const t1 = 3*(B/A)/(2 + B/A);
+  const F = (46.95e6 * Math.pow(t1,3)) / (yp * (t1 - B/A) * Math.pow(1 - t1, 2));
+  const G = F*B/A;
+  const DTyp = (Math.sqrt(Math.pow(A-2,2) + 8*(B + C/yp)) + (A-2)) / (2*(B + C/yp));
+  const DTpt = yp*(A-F) / (C + yp*(B-G));
+  const DTte = (2 + B/A) / (3*B/A);
+  return {A,B,C,F,G,DTyp,DTpt,DTte};
+}
+function collapseRating(od, id, yp, sa){
+  sa = sa || 0;
+  let ype = yp;
+  if (sa > 0){
+    const r = Math.min(sa/yp, 0.999);
+    ype = yp * (Math.sqrt(1 - 0.75*r*r) - 0.5*r);
+    if (ype < 1000) ype = 1000;
+  }
+  const t = (od - id)/2, dt = od/t;
+  const k = apiCollapseFactors(ype);
+  let p, regime;
+  if (dt <= k.DTyp){ p = 2*ype*((dt-1)/(dt*dt)); regime = "yield"; }
+  else if (dt <= k.DTpt){ p = ype*(k.A/dt - k.B) - k.C; regime = "plastic"; }
+  else if (dt <= k.DTte){ p = ype*(k.F/dt - k.G); regime = "transition"; }
+  else { p = 46.95e6/(dt*Math.pow(dt-1,2)); regime = "elastic"; }
+  return {p: Math.max(p,0), regime, dt};
+}
+function burstRating(od, id, yp){ const t=(od-id)/2; return 0.875 * 2*yp*t/od; }
+function bodyYield(od, id, yp){ return 0.7854*(od*od - id*id)*yp; }
+
+function vmeStress(od, id, pi, po, fa){
+  const ro = od/2, ri = id/2, As = Math.PI*(ro*ro - ri*ri);
+  const sz = fa/As;
+  const sh = (pi*(ri*ri + ro*ro) - 2*po*ro*ro)/(ro*ro - ri*ri);
+  const sr = -pi;
+  return Math.sqrt(0.5*(Math.pow(sz-sh,2) + Math.pow(sh-sr,2) + Math.pow(sr-sz,2)));
+}
+
+/* Per-case stress components at a depth — used by the Debug table. Same inner-wall
+   Lamé basis as vmeStress so the numbers reconcile exactly with the triaxial check. */
+function stressParts(od, id, pi, po, fa){
+  const ro = od/2, ri = id/2, As = Math.PI*(ro*ro - ri*ri);
+  const sz = fa/As;
+  const sh = (pi*(ri*ri + ro*ro) - 2*po*ro*ro)/(ro*ro - ri*ri);
+  const sr = -pi;
+  const vme = Math.sqrt(0.5*((sz-sh)**2 + (sh-sr)**2 + (sr-sz)**2));
+  return {sh, sr, sz, vme};
+}
+
+/* von Mises design envelope in (axial force, differential pressure) space.
+   Burst branch: po=0, solve pi with σVME = yLimit.  Collapse branch: pi=0, solve po. */
+function vmeEnvelope(od, id, yLimit){
+  const ro = od/2, ri = id/2, As = Math.PI*(ro*ro - ri*ri);
+  const kk = (ri*ri + ro*ro)/(ro*ro - ri*ri);   // σh = kk·pi (po = 0)
+  const mm = 2*ro*ro/(ro*ro - ri*ri);           // σh = −mm·po (pi = 0)
+  const burst = [], collapse = [];
+  const N = 80;
+  for (let i = 0; i <= N; i++){
+    const sz = -yLimit + 2*yLimit*i/N;          // axial stress sweep
+    const Fa = sz * As / 1000;                  // klbf
+    // burst: [kk²+(kk+1)²+1]p² + 2sz(1−kk)p + 2sz²−2y² = 0
+    {
+      const a = kk*kk + (kk+1)*(kk+1) + 1;
+      const b = 2*sz*(1 - kk);
+      const c = 2*sz*sz - 2*yLimit*yLimit;
+      const disc = b*b - 4*a*c;
+      if (disc >= 0){
+        const p = (-b + Math.sqrt(disc)) / (2*a);
+        if (p >= 0) burst.push({x: Fa, y: p});
+      }
+    }
+    // collapse: mm²q² + mm·sz·q + sz²−y² = 0  (Δp plotted negative)
+    {
+      const a = mm*mm, b = mm*sz, c = sz*sz - yLimit*yLimit;
+      const disc = b*b - 4*a*c;
+      if (disc >= 0){
+        const q = (-b + Math.sqrt(disc)) / (2*a);
+        if (q >= 0) collapse.push({x: Fa, y: -q});
+      }
+    }
+  }
+  return {burst, collapse: collapse.reverse()};
+}
+
+/* ---------- Project state (all depths in METERS) ---------- */
+let well = {
+  name: "Well-1",
+  units: "m",
+  formations: [ // TVD m, pore sg, frac sg (Basrah-type profile)
+    [0,    1.03, 1.44],
+    [450,  1.04, 1.58],
+    [900,  1.08, 1.73],
+    [1500, 1.13, 1.85],
+    [2150, 1.25, 1.94],
+    [2750, 1.39, 2.04],
+    [3350, 1.51, 2.13],
+    [3800, 1.57, 2.18]
+  ],
+  strings: [], // {name, od, wt, grade, shoe m, toc m, mw sg, nextTD m}
+  seats: null,
+  survey: {                          // directional survey — minimum curvature (MD/Inc/Azi in m/deg)
+    stations: [{md:0, inc:0, azi:0}, {md:3800, inc:0, azi:0}],
+    vsAzi: null                      // vertical-section azimuth, deg; null = auto (final station's azimuth)
+  }
+};
+
+function interp(table, ix, iy, x){
+  if (x <= table[0][ix]) return table[0][iy];
+  for (let i=1;i<table.length;i++){
+    if (x <= table[i][ix]){
+      const [x0,x1] = [table[i-1][ix], table[i][ix]];
+      const [y0,y1] = [table[i-1][iy], table[i][iy]];
+      return y0 + (y1-y0)*(x-x0)/(x1-x0 || 1);
+    }
+  }
+  return table[table.length-1][iy];
+}
+const pore = z => interp(well.formations, 0, 1, z);
+const frac = z => interp(well.formations, 0, 2, z);
+const maxPore = (z0,z1)=>{ let m=0; for(let z=z0; z<=z1; z+=8) m=Math.max(m,pore(z)); return Math.max(m,pore(z1)); };
+
+/* ---------- CasingSeat ---------- */
+/* Reading a numeric input with `+value || default` silently turns a deliberate ZERO into
+   the default — an engineer entering 0 kick margin would quietly get 0.5. Use an explicit
+   finite check so 0 means 0. */
+/* Parse a number the way a working engineer types it: allow thousands separators
+   (1,058.47), stray spaces, and both . and , as the decimal mark when unambiguous. */
+function parseNum(raw){
+  if (raw == null) return NaN;
+  let s = String(raw).trim().replace(/\s+/g, "");
+  if (s === "") return NaN;
+  const nDot = (s.match(/\./g)||[]).length, nCom = (s.match(/,/g)||[]).length;
+  if (nDot && nCom){
+    // both present → the LAST one is the decimal mark, the other groups thousands
+    if (s.lastIndexOf(",") > s.lastIndexOf(".")) s = s.replace(/\./g,"").replace(",",".");
+    else s = s.replace(/,/g,"");
+  } else if (nCom){
+    // only commas: "1,058" is thousands; "1,5" is a decimal comma
+    const parts = s.split(",");
+    if (parts.length > 2 || (parts[1] && parts[1].length === 3)) s = s.replace(/,/g,"");
+    else s = s.replace(",", ".");
+  }
+  const v = Number(s);
+  return Number.isFinite(v) ? v : NaN;
+}
+function numOr(id, def){
+  const e = document.getElementById(id);
+  if (!e) return def;
+  const v = parseNum(e.value);
+  return Number.isFinite(v) ? v : def;
+}
+
+function seatParams(){
+  return {
+    TD: numOr("csTD", 3800),
+    minSurf: numOr("csMinSurf", 100),
+    trip: numOr("csTrip", 0.3),          // 0 is a legitimate value
+    km: numOr("csKickMargin", 0.5),      // 0 = no kick margin (classic graphical method)
+    ki: numOr("csKI", 0.5),              // 0 = no kick intensity
+    diffLim: numOr("csDiffLimit", 2200),
+    nStr: numOr("csNstr", 0)
+  };
+}
+function kickEMWatShoe(S, D, mud, ki){ return mud + ki*(D/S); }   // ratio is unit-free
+
+/* Derive the full seat record set from a bare list of shoe depths.
+   Used identically by the automatic solver and by manually edited depths, so a
+   hand-entered shoe is checked against exactly the same physics. */
+function deriveSeats(shoes, p){
+  const list = shoes.map((shoe, i)=>{
+    const nextTD = (i < shoes.length - 1) ? shoes[i+1] : shoe;
+    const isDeepest = i === shoes.length - 1;
+    const mud = maxPore(0, nextTD) + p.trip;
+    const kickEMW = isDeepest ? null : kickEMWatShoe(shoe, nextTD, mud, p.ki);
+    const limitEMW = frac(shoe) - p.km;
+    return {shoe, nextTD, mud, kickEMW, limitEMW, isDeepest};
+  });
+  const n = list.length;
+  const roles = n<=1?["Production"]: n===2?["Surface","Production"]: n===3?["Surface","Intermediate","Production"]:
+                n===4?["Conductor","Surface","Intermediate","Production"]:
+                n===5?["Conductor","Surface","Intermediate 1","Intermediate 2","Production"]:
+                ["Conductor","Surface","Intermediate 1","Intermediate 2","Intermediate 3","Production"];
+  const odPick = OD_SEQ.slice(Math.max(0, OD_SEQ.length - Math.min(n, OD_SEQ.length)));
+  list.forEach((s,i)=>{ s.role = roles[Math.min(i,roles.length-1)]; s.od = odPick[Math.min(i,odPick.length-1)] || "7"; });
+  return list;
+}
+
+function autoShoes(p, method){
+  let shoes = [], infeasible = false;
+  if (method === "bottomup"){
+    shoes = [p.TD];
+    let D = p.TD, guard = 0;
+    while (D > p.minSurf + 30 && guard++ < 12){
+      const mud = maxPore(0, D) + p.trip;
+      const ok = z => kickEMWatShoe(z, D, mud, p.ki) <= frac(z) - p.km;
+      let S = null;
+      for (let z = p.minSurf; z < D - 30; z += 3){
+        if (ok(z)){
+          // bisect between the last failing point and z to land on the true crossing
+          let lo = Math.max(p.minSurf, z - 3), hi = z;
+          if (!ok(lo)){ for (let k = 0; k < 40; k++){ const m = (lo+hi)/2; if (ok(m)) hi = m; else lo = m; } }
+          S = hi;
+          break;
+        }
+      }
+      if (S === null){ S = Math.max(p.minSurf, D * 0.6); infeasible = true; }
+      if (S <= p.minSurf + 15){ shoes.push(p.minSurf); break; }
+      shoes.push(S); D = S;
+      if (D <= p.minSurf + 30){ shoes.push(p.minSurf); break; }
+    }
+    if (shoes[shoes.length-1] > p.minSurf + 15) shoes.push(p.minSurf);
+  } else {
+    shoes = [p.minSurf];
+    let S = p.minSurf, guard = 0;
+    while (S < p.TD - 30 && guard++ < 12){
+      const okD = z => kickEMWatShoe(S, z, maxPore(0, z) + p.trip, p.ki) <= frac(S) - p.km;
+      let found = S + 30;
+      for (let z = S + 30; z <= p.TD; z += 3){
+        if (okD(z)) found = z;
+        else { // bisect between the last drillable depth and the first that fails
+          let lo = found, hi = z;
+          for (let k = 0; k < 40; k++){ const m = (lo+hi)/2; if (okD(m)) lo = m; else hi = m; }
+          found = lo; break;
+        }
+      }
+      if (found >= p.TD - 20){ shoes.push(p.TD); break; }
+      shoes.push(found); S = found;
+    }
+    if (shoes[shoes.length-1] < p.TD - 20){ shoes.push(p.TD); infeasible = true; }
+  }
+  shoes = [...new Set(shoes.map(s=>Math.round(s)))].sort((a,b)=>a-b);
+
+  let countNote = "";
+  if (p.nStr > 0){
+    if (shoes.length > p.nStr)
+      countNote = `⚠ mud window needs ≥ ${shoes.length} strings — cannot safely reduce to ${p.nStr}, keeping ${shoes.length}.`;
+    let guard = 0;
+    while (shoes.length < p.nStr && guard++ < 10){
+      let bi = 0, big = 0;
+      for (let i = 0; i < shoes.length - 1; i++){
+        const gap = shoes[i+1] - shoes[i];
+        if (gap > big){ big = gap; bi = i; }
+      }
+      if (big < 120) break;
+      shoes.splice(bi + 1, 0, Math.round((shoes[bi] + shoes[bi+1]) / 2));
+    }
+  }
+  return {shoes, infeasible, countNote};
+}
+
+function runCasingSeat(){
+  const p = seatParams();
+  const method = document.getElementById("csMethod").value;
+  let shoes, infeasible = false, countNote = "";
+
+  if (well.manualShoes){
+    // manualShoes holds the INTERMEDIATE shoes only. The deepest shoe is the well TD by
+    // definition, so changing TD moves that shoe instead of spawning an extra string.
+    // Everything else is re-derived from current parameters so the verdict stays honest.
+    const base = [...new Set(well.manualShoes.map(s=>Math.round(s))
+                  .filter(s=> s >= p.minSurf - 1 && s < p.TD))].sort((a,b)=>a-b);
+    well.manualShoes = base;
+    shoes = [...base, p.TD];
+  } else {
+    const a = autoShoes(p, method);
+    shoes = a.shoes; infeasible = a.infeasible; countNote = a.countNote;
+  }
+
+  const list = deriveSeats(shoes, p);
+
+  const deepMud = maxPore(0, p.TD) + p.trip;
+  let worstDS = 0, worstZ = 0;
+  for (let z = 150; z <= p.TD; z += 15){
+    const ob = PSI(deepMud - pore(z), z);
+    if (ob > worstDS){ worstDS = ob; worstZ = z; }
+  }
+
+  well.seats = {list, params: p, worstDS, worstZ, infeasible, countNote, manual: !!well.manualShoes};
+  renderSeatTable();
+  drawMudChart();
+  setStatus("CasingSeat: " + list.length + " strings " +
+    (well.manualShoes ? "(manual depths, re-checked against current parameters)" : "(" + method + ")") +
+    (infeasible ? " — narrow window, program forced." : "."));
+}
+
+/* Seat depths are the single source of truth for shoe depths: any change in the
+   CasingSeat table flows into the string designs automatically. Pipe selections,
+   per-string load cases, mud weights and TOC are PRESERVED — only the geometry moves. */
+function syncStringsFromSeats(){
+  if (!well.seats || !well.strings.length) return;
+  const seats = well.seats.list;
+  if (seats.length === well.strings.length){
+    // same program shape — move the shoes, keep everything else
+    well.strings.forEach((st, i)=>{
+      st.shoe = Math.round(seats[i].shoe);
+      st.nextTD = Math.round(seats[i].nextTD);
+      normalizeString(st);                       // bottom section follows the shoe
+    });
+  } else {
+    // program shape changed (string added/removed) — rebuild, preserving picks by index
+    const old = well.strings;
+    applySeatsToDesign(true);
+    well.strings.forEach((st, i)=>{
+      const o = old[i];
+      if (o && o.od === st.od){ st.sections = o.sections.map(s=>({...s})); }
+      if (o){ st.mw = o.mw; st.toc = Math.min(o.toc, st.shoe); st.lc = o.lc; }
+      normalizeString(st);
+    });
+  }
+  well.strings.forEach(normalizeString);           // guarantees every string has a role
+  renumberRoles();                                 // auto-number duplicate roles top-down
+  populateStringSelect(); renderStrTable(); refreshTree(); drawSchematic(); runStressCheck();
+}
+
+/* --- manual depth editing ---
+   Invariant: well.manualShoes = intermediate shoes only; the deepest shoe is always well TD. */
+function manualBase(){
+  return well.seats ? well.seats.list.filter(s=>!s.isDeepest).map(s=>s.shoe) : [];
+}
+function seatEdit(i, val){
+  const v = parseNum(val);                           // accepts decimals & commas
+  if (!Number.isFinite(v) || v <= 0){ renderSeatTable(); return; }
+  const list = well.seats.list;
+  if (list[i].isDeepest){
+    // deepest shoe IS the well TD — edit TD, and let the whole model follow
+    well.manualShoes = manualBase();
+    document.getElementById("csTD").value = v;
+    if (well.strings.length) well.strings[well.strings.length-1].shoe = v;
+    syncChain(); populateStringSelect();
+    runCasingSeat(); renderStrTable(); refreshTree(); runStressCheck();
+    setStatus("Well TD set to " + v.toLocaleString() + " m — deepest shoe follows.");
+    return;
+  }
+  const base = manualBase();
+  base[i] = v;
+  well.manualShoes = base;
+  runCasingSeat();
+  syncStringsFromSeats();
+}
+function seatAdd(){
+  const p = seatParams();
+  const base = manualBase();
+  const all = [p.minSurf, ...base, p.TD];
+  let bi = 0, big = 0;
+  for (let i = 0; i < all.length - 1; i++){
+    const gap = all[i+1] - all[i];
+    if (gap > big){ big = gap; bi = i; }
+  }
+  const newShoe = Math.round((all[bi] + all[bi+1]) / 2);
+  well.manualShoes = [...base, newShoe];
+  runCasingSeat();
+  syncStringsFromSeats();
+  setStatus("Shoe added at " + newShoe.toLocaleString() + " m — string designs updated to match.");
+}
+function seatDel(i){
+  const list = well.seats.list;
+  if (list[i].isDeepest){
+    setStatus("The deepest shoe is the well TD and cannot be removed — change TD instead.");
+    return;
+  }
+  const base = manualBase();
+  base.splice(i, 1);
+  well.manualShoes = base;
+  runCasingSeat();
+  syncStringsFromSeats();
+}
+function seatAuto(){
+  well.manualShoes = null;
+  runCasingSeat();
+  syncStringsFromSeats();
+  setStatus("Reverted to automatic seat selection — string designs updated to match.");
+}
+
+function renderSeatTable(){
+  const body = document.getElementById("csBody");
+  const s = well.seats; if (!s) return;
+  body.innerHTML = "";
+  let fails = 0;
+  s.list.forEach((it,i)=>{
+    const ok = it.isDeepest || it.kickEMW <= it.limitEMW + 0.001;
+    if (!ok) fails++;
+    body.insertAdjacentHTML("beforeend",
+      `<tr><td class="l"><b>${it.role}</b></td><td>${fmtHole(defaultHole(it.od))}</td><td>${fmtOD(it.od)}</td>
+       <td><input class="inp" style="width:74px;text-align:center${ok?"":";border:1px solid var(--bad);background:#fdeeee"}"
+            type="text" inputmode="decimal" value="${fmtDepth(it.shoe)}" title="shoe depth in metres — decimals allowed" onchange="seatEdit(${i},this.value)"
+            title="${it.isDeepest?"Deepest shoe — tracks well TD":"Edit freely; the kick-tolerance check re-runs on every change"}"></td>
+       <td>${it.isDeepest?"—":it.mud.toFixed(2)}</td>
+       <td>${it.isDeepest?"—":it.kickEMW.toFixed(2)}</td><td>${it.limitEMW.toFixed(2)}</td>
+       <td><span class="badge ${ok?"ok":"bad"}">${it.isDeepest?"TD":(ok?"PASS":"FAIL")}</span></td>
+       <td><button class="btn small" onclick="seatDel(${i})" title="Remove this shoe" ${s.list.length<=1?"disabled":""}>✕</button></td></tr>`);
+  });
+
+  const w = document.getElementById("csWarnings");
+  const p = s.params;
+  let msg = "";
+  if (s.countNote) msg += `<span class="sf-warn">${s.countNote}</span><br>`;
+  if (fails) msg += `<span class="sf-bad">⚠ ${fails} shoe${fails>1?"s":""} FAIL the kick-tolerance check: the gas-kick EMW at the shoe exceeds (frac − kick margin), so a kick taken at the next section TD would fracture the shoe. Deepen the shoe, reduce the section length, or raise the kick margin.</span><br>`;
+  msg += `Differential sticking screen: worst overbalance ≈ <b>${Math.round(s.worstDS).toLocaleString()} psi</b> at ${Math.round(s.worstZ).toLocaleString()} m `;
+  msg += s.worstDS > p.diffLim ? `<span class="sf-bad">exceeds the ${p.diffLim.toLocaleString()} psi limit — consider an extra intermediate string or lower trip margin.</span>`
+                               : `<span class="sf-ok">within the ${p.diffLim.toLocaleString()} psi limit.</span>`;
+  w.innerHTML = msg;
+
+  const tag = document.getElementById("csModeTag");
+  if (tag) tag.innerHTML = s.manual
+    ? `<span class="badge warn">MANUAL DEPTHS</span>`
+    : `<span class="badge ok">AUTO</span>`;
+  document.getElementById("csRankNote").textContent =
+    "KI " + p.ki + " sg · KM " + p.km + " sg" + (p.nStr && !s.manual ? " · fixed "+p.nStr+" strings" : "");
+}
+
+function applySeatsToDesign(silent){
+  if (!well.seats) runCasingSeat();
+  const list = well.seats.list;
+  well.strings = list.map((s)=>{
+    const wts = PIPES[s.od];
+    const mwInstall = maxPore(0, s.shoe) + well.seats.params.trip;
+    const w0 = wts[Math.min(1,wts.length-1)][0];
+    return {name: s.role, od: s.od, top: 0, wt: w0, grade: defaultGrade(),
+            sections: [{to: Math.round(s.shoe), od: s.od, hole: defaultHole(s.od), wt: w0, grade: defaultGrade()}],
+            shoe: Math.round(s.shoe), toc: Math.round(Math.max(0, s.shoe*0.55)), mw: +mwInstall.toFixed(2),
+            nextTD: Math.round(s.nextTD)};
+  });
+  syncChain();
+  populateStringSelect(); recalcAll(false);
+  if (!silent){
+    switchTab("stresscheck");
+    setStatus("Seats applied — " + well.strings.length + " string designs created.");
+  }
+}
+function defaultGrade(){ return document.getElementById("sourService").checked ? "L-80" : "N-80"; }
+
+/* keep nextTD chain + TD field + formation depth mutually consistent */
+function syncChain(){
+  well.strings.sort((a,b)=> a.shoe - b.shoe);
+  well.strings.forEach((s,j)=> s.nextTD = j < well.strings.length-1 ? well.strings[j+1].shoe : s.shoe);
+  if (well.strings.length){
+    const deepest = well.strings[well.strings.length-1].shoe;
+    const tdEl = document.getElementById("csTD");
+    if (Math.abs(+tdEl.value - deepest) > 1) tdEl.value = deepest;
+    // NOTE: the formation table is never auto-extended — interp() already holds the last
+    // value flat below the deepest data point, and silently adding rows would hide the
+    // fact that pore/frac are being extrapolated. renderFmWarning() surfaces that instead.
+  }
+}
+
+/* one entry point: any edit anywhere → everything recomputes and redraws */
+function recalcAll(reseat){
+  syncChain();
+  if (reseat !== false && well.seats) runCasingSeat();
+  populateStringSelect();         // rebuild the "Design string" list so its label reflects current OD/Wt/Grade
+  renderFm(); renderStrTable(); refreshTree();
+  runStressCheck();               // also redraws SC charts, schematic, report
+  drawMudChart();
+}
+
+/* ---------- StressCheck ---------- */
+function DF(){ return {
+  burst: numOr("dfBurst", 1.10),
+  collapse: numOr("dfCollapse", 1.00),
+  tension: numOr("dfTension", 1.30),
+  vme: numOr("dfVME", 1.25) };
+}
+function curString(){
+  const i = +document.getElementById("scString").value || 0;
+  return well.strings[Math.min(i, well.strings.length-1)];
+}
+
+/* ================= Tapered string support =================
+   A string is a list of sections top→bottom. Each section carries its own weight
+   and grade, so ratings, axial weight and cost all vary with depth.
+   st.top lets a string hang below surface (RKB datum offset, or a liner). */
+
+/* The load case set belongs to the STRING, not the app: a conductor, an intermediate
+   and a production string see completely different loads. */
+function defaultLC(){
+  return {
+    // ================= BURST =================
+    // Displacement to Gas — StressCheck fields: influx depth, gas gradient, frac margin, mud/gas interface, MW
+    disp:false,   dispInflux:null, dispGasGrad:0.10, dispFracMOE:0.06, dispInterface:0, dispMW:null,
+    // Gas Kick Profile
+    kick:true,    kickInflux:null, kickVol:50, kickInt:0.06, kickMaxMW:null, kickGasGrav:0.70, kickFracMOE:0.06, kickDPod:5.0,
+    // Fracture @ Shoe w/ Gas Gradient Above
+    fracGas:false, fracGasMOE:0.06, fracGasGrad:0.10,
+    // Lost Returns with Water
+    lostH2O:false, lostH2OMOE:0.06, lostH2OInterface:null, lostH2OMW:null,
+    // Surface Protection (BOP)
+    bop:false,    bopMOE:0.06, bopGasGrad:0.10,
+    // Pressure Test
+    test:true,    testP:5000, testMW:null, testPlug:null,
+    // Green Cement Pressure Test
+    greenCmt:false, greenP:null, greenLead:15.69, greenDispl:null, greenFloat:null,
+    // Gas over Mud Ratio
+    gasMud:false, gasMudInflux:null, gasMudGrad:0.10, gasMudMOE:0.06, gasMudMW:null, gasMudPctGas:50,
+    // Tubing Leak (production)
+    leak:true,
+    // ================= COLLAPSE =================
+    // Full / Partial Evacuation — MW + mud level
+    evac:true,    evacMW:null, evacLevel:null,
+    // Lost Returns with Mud Drop
+    lost:true,    lostDepth:null, lostPore:null, lostMW:null,
+    // Cementing
+    cmt:true,     cmtW:1.90, cmtDispl:null,
+    // Fluid Gradients w/ Pore Pressure
+    fluidGrad:false, fgAbove:null, fgBelow:null, fgWellhead:1.50,
+    // Drill Ahead
+    drillAhead:false,
+    // ================= AXIAL =================
+    rih:true, rihSpeed:2.0,                 // Running in Hole — avg speed ft/s (shock load)
+    op:false, opF:100000,
+    preCmt:false, preCmtF:0,                // Pre-Cement Static Load — applied surface force, lbf
+    postCmt:true,
+    greenAx:false,                          // Green Cement Pressure Test as an AXIAL case (piston)
+    svc:true, svcDT:0,                               // Service Loads (simplified ballooning envelope)
+    // shared
+    pkr:1.03, backup:0.465,
+    // External (backup) pressure profile for burst cases — mirrors StressCheck
+    // Burst Loads > Select tab. 'pp_sw' = Pore Pressure w/ Seawater Gradient (doc pp.68-69,
+    // StressCheck's usual choice for surface/conductor strings); 'mud_mix' = Mud & Cement
+    // Mix-Water (doc p.61); 'fixed' = constant gradient (legacy BASIRA behaviour).
+    extProfile:"pp_sw", extMixW:1.00
+  };
+}
+/* Fill any null (auto) load-case parameter from the string + formation, so a freshly
+   selected case shows sensible values the user can then override. Called before build. */
+function fillLCDefaults(st){
+  const lc = st.lc, S = st.shoe, Dn = Math.max(st.nextTD||S, S);
+  const setNull = (k,v)=>{ if (lc[k]==null || !Number.isFinite(lc[k])) lc[k]=+(+v).toFixed(3); };
+  setNull('dispInflux', Dn);       setNull('dispMW', st.mw);
+  setNull('kickInflux', Dn);       setNull('kickMaxMW', st.mw);
+  setNull('lostH2OInterface', S);  setNull('lostH2OMW', st.mw);
+  setNull('testMW', st.mw);        setNull('testPlug', S);
+  setNull('greenP', 1184.97 && numOr('scTestP',5000)); // test pressure default
+  setNull('greenDispl', st.mw);    setNull('greenFloat', Math.max(0,S-13));
+  setNull('gasMudInflux', Dn);     setNull('gasMudMW', st.mw);
+  setNull('evacMW', st.mw);        setNull('evacLevel', S);
+  setNull('lostDepth', Math.round(Dn*0.5)); setNull('lostMW', st.mw);
+  setNull('lostPore', PSI(pore(lc.lostDepth||Dn*0.5), lc.lostDepth||Dn*0.5));
+  setNull('rihSpeed', 2.0); setNull('preCmtF', 0); setNull('svcDT', 0);
+  setNull('cmtDispl', st.mw);
+  setNull('fgAbove', st.mw);       setNull('fgBelow', st.mw);
+}
+const LC_CHECKS = {
+  // burst
+  lcDisp:"disp", lcKick:"kick", lcFracGas:"fracGas", lcLostH2O:"lostH2O", lcBOP:"bop",
+  lcTest:"test", lcGreenCmt:"greenCmt", lcGasMud:"gasMud", lcLeak:"leak",
+  // collapse
+  lcEvac:"evac", lcLost:"lost", lcCmt:"cmt", lcDrillAhead:"drillAhead",
+  // axial
+  lcOP:"op", lcPostCmt:"postCmt"
+};
+const LC_NUMS   = {scTestP:"testP", scCmtW:"cmtW", scOP:"opF", scPkr:"pkr", scBackup:"backup"};
+
+/* The panel always belongs to exactly one string. lcOwnerIdx records which, so a value
+   typed but not yet blurred is flushed to the RIGHT string before the panel is repointed. */
+let lcOwnerIdx = 0;
+
+/* ---- Declarative load-case specification (mirrors StressCheck dialogs) --------
+   Each case: flag, group, label, and the parameters the user can edit. Parameter
+   fields carry a key (into st.lc), a caption, a unit, and how the default is derived. */
+const LC_SPEC = [
+  // ---------- BURST ----------
+  {flag:"disp", group:"BURST", label:"Displacement to gas", params:[
+    {k:"dispInflux", cap:"Influx depth", unit:"m"}, {k:"dispGasGrad", cap:"Gas/oil gradient", unit:"psi/ft"},
+    {k:"dispFracMOE", cap:"Frac margin of error", unit:"sg"}, {k:"dispInterface", cap:"Mud/gas interface", unit:"m"},
+    {k:"dispMW", cap:"Mud weight", unit:"sg"} ]},
+  {flag:"kick", group:"BURST", label:"Gas kick profile", params:[
+    {k:"kickInflux", cap:"Influx depth", unit:"m"}, {k:"kickVol", cap:"Kick volume", unit:"bbl"},
+    {k:"kickInt", cap:"Kick intensity", unit:"sg"}, {k:"kickMaxMW", cap:"Maximum mud weight", unit:"sg"},
+    {k:"kickGasGrav", cap:"Kick gas gravity", unit:""}, {k:"kickFracMOE", cap:"Frac margin of error", unit:"sg"},
+    {k:"kickDPod", cap:"Drill pipe OD", unit:"in"} ]},
+  {flag:"fracGas", group:"BURST", label:"Fracture @ shoe w/ gas gradient above", params:[
+    {k:"fracGasMOE", cap:"Frac margin of error", unit:"sg"}, {k:"fracGasGrad", cap:"Gas/oil gradient", unit:"psi/ft"} ]},
+  {flag:"lostH2O", group:"BURST", label:"Lost returns with water", params:[
+    {k:"lostH2OMOE", cap:"Frac margin of error", unit:"sg"}, {k:"lostH2OInterface", cap:"Mud/water interface", unit:"m"},
+    {k:"lostH2OMW", cap:"Mud weight", unit:"sg"} ]},
+  {flag:"bop", group:"BURST", label:"Surface protection (BOP)", params:[
+    {k:"bopMOE", cap:"Frac margin of error", unit:"sg"}, {k:"bopGasGrad", cap:"Gas/oil gradient", unit:"psi/ft"} ]},
+  {flag:"test", group:"BURST", label:"Pressure test", params:[
+    {k:"testP", cap:"Test pressure", unit:"psi"}, {k:"testMW", cap:"Mud weight", unit:"sg"},
+    {k:"testPlug", cap:"Plug depth", unit:"m"} ]},
+  {flag:"greenCmt", group:"BURST", label:"Green cement pressure test", params:[
+    {k:"greenP", cap:"Test pressure", unit:"psi"}, {k:"greenLead", cap:"Lead slurry density", unit:"sg"},
+    {k:"greenDispl", cap:"Displacement fluid", unit:"sg"}, {k:"greenFloat", cap:"Float collar depth", unit:"m"} ]},
+  {flag:"gasMud", group:"BURST", label:"Gas over mud ratio", params:[
+    {k:"gasMudInflux", cap:"Influx depth", unit:"m"}, {k:"gasMudGrad", cap:"Gas/oil gradient", unit:"psi/ft"},
+    {k:"gasMudMOE", cap:"Frac margin of error", unit:"sg"}, {k:"gasMudMW", cap:"Mud weight", unit:"sg"},
+    {k:"gasMudPctGas", cap:"% gas", unit:"%"} ]},
+  {flag:"leak", group:"BURST", label:"Tubing leak (production)", params:[]},
+  // ---------- COLLAPSE ----------
+  {flag:"evac", group:"COLLAPSE", label:"Full / partial evacuation", params:[
+    {k:"evacMW", cap:"Mud weight", unit:"sg"}, {k:"evacLevel", cap:"Mud level", unit:"m"} ]},
+  {flag:"lost", group:"COLLAPSE", label:"Lost returns with mud drop", params:[
+    {k:"lostDepth", cap:"Lost returns depth", unit:"m"}, {k:"lostPore", cap:"Pore @ lost depth", unit:"psi"},
+    {k:"lostMW", cap:"Mud weight", unit:"sg"} ]},
+  {flag:"cmt", group:"COLLAPSE", label:"Cementing", params:[
+    {k:"cmtW", cap:"Slurry density", unit:"sg"}, {k:"cmtDispl", cap:"Displacement fluid", unit:"sg"} ]},
+  {flag:"fluidGrad", group:"COLLAPSE", label:"Fluid gradients w/ pore pressure", params:[
+    {k:"fgAbove", cap:"Fluid gradient above TOC", unit:"sg"}, {k:"fgBelow", cap:"Fluid gradient below TOC", unit:"sg"},
+    {k:"fgWellhead", cap:"Wellhead pressure", unit:"psi"} ]},
+  {flag:"drillAhead", group:"COLLAPSE", label:"Drill ahead", params:[]},
+  // ---------- AXIAL (mirrors the StressCheck Axial Loads > Select dialog) ----------
+  {flag:"rih", group:"AXIAL", label:"Running in hole — avg. speed", params:[
+    {k:"rihSpeed", cap:"Average running speed", unit:"ft/s"} ]},
+  {flag:"op", group:"AXIAL", label:"Overpull force", params:[
+    {k:"opF", cap:"Overpull force", unit:"lbf"} ]},
+  {flag:"preCmt", group:"AXIAL", label:"Pre-cement static load", params:[
+    {k:"preCmtF", cap:"Applied force (pickup +)", unit:"lbf"} ]},
+  {flag:"postCmt", group:"AXIAL", label:"Post-cement static load", params:[]},
+  {flag:"greenAx", group:"AXIAL", label:"Green cement pressure test", params:[]},
+  {flag:"svc", group:"AXIAL", label:"Service loads", params:[
+    {k:"svcDT", cap:"Temp change vs initial ΔT", unit:"°C"} ]},
+];
+const LC_GROUP_COLOR = {BURST:"#6b3a12", COLLAPSE:"#123f6b", AXIAL:"#3a3a3a"};
+
+/* Render the whole load-case panel dynamically: a checkbox per case, and when a case
+   is ticked, its editable parameter fields appear indented beneath it. */
+function renderLCPanel(){
+  const host = document.getElementById("lcDynamic");
+  if (!host) return;
+  const st = well.strings[lcOwnerIdx]; if (!st) return;
+  fillLCDefaults(st);
+  const lc = st.lc;
+  let html = "", lastGroup = "";
+  // External burst backup profile — mirrors StressCheck Burst Loads > Select tab
+  const sel = v => lc.extProfile===v ? "selected" : "";
+  html += `<div style="font-size:9.5px;font-weight:700;color:#6b3a12;margin-top:2px">EXTERNAL PROFILE (burst backup)</div>
+    <div style="margin:1px 0 4px 0;padding:4px 6px;background:#faf8f2;border:1px solid #e5ddc9;border-radius:3px;display:grid;grid-template-columns:1fr 1fr;gap:3px 8px">
+    <label class="fld" style="font-size:9px;display:flex;flex-direction:column;gap:1px">Profile
+      <select class="inp" style="width:100%" onchange="lcParamStr('extProfile',this.value)">
+        <option value="pp_sw" ${sel('pp_sw')}>Pore pressure w/ seawater grad.</option>
+        <option value="mud_mix" ${sel('mud_mix')}>Mud &amp; cement mix-water</option>
+        <option value="fixed" ${sel('fixed')}>Fixed gradient (backup, psi/ft)</option>
+      </select></label>
+    <label class="fld" style="font-size:9px;display:flex;flex-direction:column;gap:1px">Mix-water density <span style="color:#999">(sg)</span>
+      <input class="inp" style="width:100%" type="text" inputmode="decimal" value="${lc.extMixW??1.00}" onchange="lcParam('extMixW',this.value)"></label>
+    </div>`;
+  for (const c of LC_SPEC){
+    if (c.group !== lastGroup){
+      html += `<div style="font-size:9.5px;font-weight:700;color:${LC_GROUP_COLOR[c.group]};margin-top:4px">${c.group}</div>`;
+      lastGroup = c.group;
+    }
+    const on = !!lc[c.flag];
+    // production-only load cases are inert on drilling strings — show why, disabled
+    const roleP = baseRole(st.role || st.name);
+    const prodOnly = (c.flag === "leak");
+    const inert = prodOnly && !(roleP === "Production" || roleP === "Tieback");
+    if (inert){
+      html += `<label class="chk" style="opacity:.45" title="Production/Tieback strings only — not evaluated on ${roleP} casing (StressCheck: production load case).">`+
+              `<input type="checkbox" disabled ${on?"checked":""}> ${c.label} <span style="font-size:8px;color:#a00">· prod only</span></label>`;
+      continue;
+    }
+    html += `<label class="chk"><input type="checkbox" ${on?"checked":""} onchange="lcToggle('${c.flag}',this.checked)"> ${c.label}</label>`;
+    if (on && c.params.length){
+      html += `<div style="margin:1px 0 4px 20px;padding:4px 6px;background:#faf8f2;border:1px solid #e5ddc9;border-radius:3px;display:grid;grid-template-columns:1fr 1fr;gap:3px 8px">`;
+      for (const pr of c.params){
+        const val = lc[pr.k];
+        const shown = (val==null||!Number.isFinite(val)) ? "" : fmtDepth(val);
+        html += `<label class="fld" style="font-size:9px;display:flex;flex-direction:column;gap:1px">${pr.cap}${pr.unit?` <span style="color:#999">(${pr.unit})</span>`:""}` +
+                `<input class="inp" style="width:100%" type="text" inputmode="decimal" value="${shown}" ` +
+                `onchange="lcParam('${pr.k}',this.value)"></label>`;
+      }
+      html += `</div>`;
+    }
+  }
+  host.innerHTML = html;
+}
+function lcParamStr(key, val){
+  const st = well.strings[lcOwnerIdx]; if (!st) return;
+  (st.lc || (st.lc = defaultLC()))[key] = val;
+  renderLCPanel(); runStressCheck();
+}
+function lcToggle(flag, on){
+  const st = well.strings[lcOwnerIdx]; if (!st) return;
+  st.lc[flag] = on;
+  renderLCPanel();            // show/hide the parameter block
+  runStressCheck();
+}
+function lcParam(key, val){
+  const st = well.strings[lcOwnerIdx]; if (!st) return;
+  let v = parseNum(val);
+  if (Number.isFinite(v)){
+    if (LC_DENSITY_KEYS.has(key)){
+      const c = toSG(v);
+      if (c !== v){ v = c; setStatus("Converted " + key + " from ppg → " + v + " sg"); renderLCPanel(); }
+    }
+    st.lc[key] = v;
+  }
+  runStressCheck();
+}
+
+function writeLCToUI(st){
+  const lc = st.lc || (st.lc = defaultLC());
+  lcOwnerIdx = well.strings.indexOf(st);
+  renderLCPanel();                         // dynamic case list + parameter fields
+  // shared numeric fields (packer fluid, backup gradient) live outside the dynamic list
+  for (const id in LC_NUMS){
+    const e = document.getElementById(id);
+    if (e && document.activeElement !== e) e.value = lc[LC_NUMS[id]];
+  }
+  const tag = document.getElementById("lcOwner");
+  if (tag) tag.textContent = "— " + roleLabel(st);
+}
+function readLCFromUI(){
+  const st = well.strings[lcOwnerIdx]; if (!st) return;
+  const lc = st.lc || (st.lc = defaultLC());
+  for (const id in LC_NUMS){ const e = document.getElementById(id); if (e){ let v = parseNum(e.value);
+    if (Number.isFinite(v)){ if (LC_DENSITY_KEYS.has(LC_NUMS[id])){ const c = toSG(v); if (c !== v){ v = c; e.value = v; setStatus("Converted from ppg → " + v + " sg"); } } lc[LC_NUMS[id]] = v; } } }
+}
+let lcTimer = null;
+function onLCChange(){ clearTimeout(lcTimer); readLCFromUI(); runStressCheck(); }
+/* fires on every keystroke, so a value never has to be blurred to count */
+function onLCInput(){
+  clearTimeout(lcTimer);
+  lcTimer = setTimeout(()=>{ readLCFromUI(); runStressCheck(); }, 200);
+}
+
+function normalizeString(st){
+  if (!st.role){                                   // migrate old projects that only had .name
+    st.role = baseRole(st.name);
+    if (st.role === "Custom" || (!ROLES.includes(st.role))) { st.role = "Custom"; st.customName = st.name; }
+  }
+  if (st.top == null) st.top = 0;
+  if (!st.lc) st.lc = defaultLC();
+  if (!st.sections || !st.sections.length){          // migrate legacy single-pipe strings
+    st.sections = [{to: st.shoe, od: st.od, wt: st.wt, grade: st.grade}];
+  }
+  st.sections.forEach(s=>{
+    if (!s.od) s.od = st.od;                         // migrate sections saved before per-section OD
+    if (!PIPES[s.od]) s.od = st.od;
+    if (s.hole == null || s.hole <= parseFloat(s.od)) s.hole = defaultHole(s.od);
+    // weight must exist in that section's own OD
+    if (!PIPES[s.od].some(r=> Math.abs(r[0]-s.wt) < 0.01)) s.wt = PIPES[s.od][0][0];
+  });
+  st.sections.sort((a,b)=> a.to - b.to);
+  st.sections[st.sections.length-1].to = st.shoe;     // bottom section always reaches the shoe
+  st.sections = st.sections.filter((s,i)=> i===0 || s.to > st.sections[i-1].to);
+  const shoeSec = st.sections[st.sections.length-1];
+  st.od = shoeSec.od;                                 // legacy fields track the shoe joint
+  st.wt = shoeSec.wt;
+  st.grade = shoeSec.grade;
+  return st;
+}
+/* Largest OD in the string governs the hole it is run in. */
+function maxOD(st){ return st.sections.reduce((m,s)=> parseFloat(s.od) > parseFloat(m) ? s.od : m, st.sections[0].od); }
+function sectionSpans(st){
+  const out = []; let from = st.top;
+  for (const s of st.sections){ out.push({from, to: s.to, od: s.od, hole: s.hole, wt: s.wt, grade: s.grade}); from = s.to; }
+  return out;
+}
+function sectionAt(st, z){
+  const spans = sectionSpans(st);
+  for (const s of spans) if (z <= s.to + 1e-9) return s;
+  return spans[spans.length-1];
+}
+function pipeOf(od, wt){
+  const rows = PIPES[od] || [];
+  const r = rows.find(x=> Math.abs(x[0]-wt) < 0.01) || rows[0];
+  return {od: +od, id: r[1], wt: r[0], drift: r[2]};
+}
+function pipeAt(st, z){
+  const s = sectionAt(st, z);
+  const p = pipeOf(s.od, s.wt);
+  return {...p, grade: s.grade, yp: GRADES[s.grade].yp};
+}
+/* buoyed weight of everything below z, honouring per-section weights */
+function axialBelow(st, z, BF){
+  let F = 0;
+  for (const s of sectionSpans(st)){
+    const a = Math.max(s.from, z);
+    if (s.to > a) F += s.wt * (s.to - a) * FT * BF;
+  }
+  return F;
+}
+function stringCost(st){
+  const base = numOr("scSteelCost", 1.0);   // $/lb
+  let c = 0;
+  for (const s of sectionSpans(st)) c += s.wt * (s.to - s.from) * FT * base * (GRADES[s.grade].cost || 1);
+  return c;
+}
+
+/* Vector collapse safety factor: scale the whole load vector (axial AND differential
+   pressure) proportionally until it reaches the API 5C3 collapse limit, which itself
+   depends on axial through the reduced-yield correction. Solved by bisection.
+   This is the proportional-scaling interpretation of a "vector" SF; Landmark's exact
+   proprietary implementation may differ in detail. */
+function vectorCollapseSF(od, id, yp, dp, Fa, As, Pi){
+  // Vector collapse SF per StressCheck: SF = |OC| / |OA| in the (Feff, dP) plane,
+  // where Feff = Fa + Pi*As is the effective axial force and dP = Pe - Pi.
+  //   A (load) = (FeffA, dpA);  the radial line through O and A is scaled by L until it
+  //   meets the collapse envelope at C = (L*FeffA, L*dpA). On the envelope the collapse
+  //   rating is a function of the equivalent axial stress sigma_ac + Pi_c = Feff_c / As.
+  // So at scale L the required-vs-capacity balance is:
+  //        L*dpA  ==  collapseRating( axialStress = FeffC/As )
+  // and the safety factor is the vector-length ratio |OC|/|OA|, not simply L.
+  if (dp <= 1) return 99;
+  const FeffA = Fa + (Pi||0)*As;
+  const f = L => {
+    const FeffC = L*FeffA;
+    const sigA  = FeffC/As;                       // = sigma_ac + Pi_c  (doc: Feff_c/As)
+    return L*dp - collapseRating(od, id, yp, Math.max(0, sigA)).p;
+  };
+  let lo = 1e-3, hi = 50;
+  if (f(hi) < 0) return 99;
+  if (f(lo) > 0) return lo;
+  for (let i = 0; i < 80; i++){ const m = (lo+hi)/2; if (f(m) > 0) hi = m; else lo = m; }
+  const L = (lo+hi)/2;
+  // |OC|/|OA| = L*|OA|/|OA| = L*sqrt(FeffA²+dpA²)/sqrt(FeffA²+dpA²)... but the vector length
+  // ratio equals L only when both components scale by L, which they do here (radial line).
+  // The doc's SF = OC/OA with C=L*A therefore reduces to L exactly. Guard the Feq≈0 case:
+  const OA = Math.hypot(FeffA, dp);
+  if (OA < 1e-6) return cRateRatio(od, id, yp, dp, Fa, As);   // Feq→0: vector == ratio SF
+  return L;
+}
+/* Ratio collapse SF fallback (doc p.3): SF' = collapse rating (tension-derated) / dP. */
+function cRateRatio(od, id, yp, dp, Fa, As){
+  if (dp <= 1) return 99;
+  return collapseRating(od, id, yp, Math.max(0, Fa/As)).p / dp;
+}
+function collapseMethod(){
+  const el = document.getElementById("scCollMethod");
+  return el ? el.value : "norm";
+}
+
+function buildProfiles(st){
+  const lc = st.lc || (st.lc = defaultLC());
+  fillLCDefaults(st);
+  const N = 60, S = st.shoe, backup = lc.backup;
+  const gasG = numOr("csGasGrad", 0.10);   // psi/ft, well-level; 0 = liquid influx
+  const pkr = lc.pkr, testP = lc.testP, cmtW = lc.cmtW, OP = lc.opF;
+  const Dn = Math.max(st.nextTD || S, S);
+  const T = st.top || 0;
+  const zArr = Array.from({length:N+1},(_,i)=> T + (S-T)*i/N);               // meters, from string top
+  // StressCheck-style calc depths: every section boundary is sampled on BOTH sides
+  // (s.to−ε on the upper pipe, s.to+ε on the lower pipe) so the weaker section is
+  // evaluated exactly at its top — where its load is worst — not one grid step lower.
+  sectionSpans(st).forEach(s=>{ if (s.to > T && s.to < S) zArr.push(s.to - 0.01, s.to + 0.01); });
+  zArr.sort((a,b)=>a-b);
+
+  const BF = 1 - st.mw/7.84;
+  const cases = {burst:[], collapse:[], axial:[]};
+
+  /* ---- External (backup) pressure profile for BURST cases ----------------------
+     StressCheck doc, Load Case Overview:
+       pp_sw  (pp.68-69, onshore): linear from 0 psig at ground level to the pore
+              pressure at the current shoe —  P_ext = (TVD/TVD_shoe)·P_pore@shoe.
+              "Greatest applicability for surface and conductor strings."
+       mud_mix (p.61): mud density hanger→TOC, cement mix-water TOC→shoe (continuous).
+       fixed : constant gradient (legacy BASIRA backup, psi/ft).
+     Green Cement keeps its own self-described external profile per doc p.45. */
+  const tocB = Math.min(st.toc, S);
+  const pPoreShoe = PSI(pore(S), S);
+  const peB = (lc.extProfile === "pp_sw")
+      ? (z => Math.max(0, (z - T) / Math.max(S - T, 1e-6)) * pPoreShoe)
+    : (lc.extProfile === "mud_mix")
+      ? (z => z <= tocB ? PSI(st.mw, z) : PSI(st.mw, tocB) + PSI(lc.extMixW || 1.00, z - tocB))
+      : (z => backup * z * FT);
+
+  if (lc.disp){
+    // Displacement to Gas — StressCheck doc (Load Case Overview pp.19-21):
+    //   P_shoe = P_pore@influx − g·ρgas·(TVDinflux − TVDshoe)
+    //   If P_shoe exceeds P_frac (Limit-to-Frac enabled), the interface pressure is
+    //   controlled by the fracture:  P_iface = (P_frac + MOE) − g·ρgas·(TVDshoe − TVDiface)
+    //   MOE is the incremental EMW ABOVE frac allowed to develop (conservative ⇒ ADDED).
+    //   Gas below the mud/gas interface; mud on top:
+    //   P_internal = P_iface − g·ρmud·(TVDiface − TVD) above the interface.
+    const zInf = lc.dispInflux, moe = lc.dispFracMOE, gG = lc.dispGasGrad;
+    const iface = Math.min(Math.max(lc.dispInterface||0, 0), S);   // default 0 = full gas column
+    const mwD = lc.dispMW || st.mw;
+    const pShoeGas  = PSI(pore(zInf), zInf) - gG*(zInf - S)*FT;    // gas column from influx to shoe
+    const pShoeUsed = Math.min(pShoeGas, PSI(frac(S) + moe, S));   // fracture caps the pressure
+    const pIface    = pShoeUsed - gG*(S - iface)*FT;               // gas up to the interface
+    cases.burst.push({name:"Displacement to gas",
+      pi: z=> z >= iface ? pIface + gG*(z - iface)*FT
+                         : Math.max(0, pIface - PSI(mwD, iface - z)),
+      pe: peB});
+  }
+  if (lc.kick){
+    // Gas Kick Profile (StressCheck doc p.10): a constant bottomhole pressure is maintained
+    // while gas expands up the annulus.  P_bh = (max_mud_weight + kick_intensity)·0.433·TVD_influx  (sg).
+    // The internal profile is the gas column hung below P_bh, capped by frac at the shoe.
+    const zInf = lc.kickInflux || Dn;
+    const maxMW = lc.kickMaxMW || st.mw, ki = lc.kickInt || 0.5;
+    const pBH = 0.433*(maxMW + ki)*(zInf*FT);              // bottomhole pressure, psi
+    const gGrad = 0.0519*(lc.kickGasGrav || 0.7);          // gas gradient, psi/ft
+    // MOE = incremental EMW ABOVE frac allowed to develop (doc p.34) ⇒ added, not subtracted.
+    // NOTE: this is a simplified static envelope of the doc's full Driller's-Method kick
+    // circulation simulation (bubble locus, RK EOS); kick volume / DP OD are not yet used.
+    const pShoeCap = PSI(frac(S) + lc.kickFracMOE, S);     // limit-to-frac at shoe
+    cases.burst.push({name:"Gas kick",
+      pi: z=> Math.min(pBH - gGrad*(zInf - z)*FT, pShoeCap - gGrad*(S - z)*FT),
+      pe: peB});
+  }
+  if (lc.fracGas){
+    // Doc p.30: P_internal = P_frac(+MOE) − g·ρgas·(TVDshoe − TVD). MOE is added (conservative).
+    const pShoe = PSI(frac(S) + lc.fracGasMOE, S);
+    cases.burst.push({name:"Frac @ shoe, gas above", pi: z=> pShoe - lc.fracGasGrad*(S - z)*FT, pe: peB});
+  }
+  if (lc.lostH2O){
+    // Lost Returns with Water — StressCheck doc p.55. Anchored at frac(+MOE) at the shoe:
+    //   P_mud/water = P_frac − g·ρmud·(TVDshoe − TVDiface)
+    //   above iface: P_internal = P_mud/water − g·ρwater·(TVDiface − TVD)   (seawater on top)
+    //   below iface: P_internal = P_frac − g·ρmud·(TVDshoe − TVD)
+    const WATER = 1.00, iface = lc.lostH2OInterface, mw = lc.lostH2OMW;
+    const pFr = PSI(frac(S) + lc.lostH2OMOE, S);
+    const pIf = pFr - PSI(mw, S - iface);
+    cases.burst.push({name:"Lost returns w/ water",
+      pi: z=> z <= iface ? Math.max(0, pIf - PSI(WATER, iface - z))
+                         : pFr - PSI(mw, S - z),
+      pe: peB});
+  }
+  if (lc.bop){
+    // Surface Protection (BOP) — StressCheck doc pp.81-83:
+    //   P_hanger  = P_frac(+MOE) − g·ρseawater·(TVDshoe − TVDhanger)   (Lost-Returns construct)
+    //   P_internal = P_hanger + g·ρgas·(TVD − TVDhanger)               (full gas below)
+    const SW = 1.03;
+    const pHanger = Math.max(0, PSI(frac(S) + lc.bopMOE, S) - PSI(SW, S - T));
+    cases.burst.push({name:"Surface protection (BOP)",
+      pi: z=> pHanger + lc.bopGasGrad*(z - T)*FT, pe: peB});
+  }
+  if (lc.greenCmt){
+    // Green Cement Pressure Test (StressCheck doc p.16):
+    //   internal (hanger→float collar):  P = P_test + g·rho_displacement·TVD
+    //   external (hanger→TOC):           P = g·rho_mud·TVD
+    //   external (TOC→shoe):             P = P_toc + g·rho_lead_slurry·(TVD − TVD_toc)
+    const displ = lc.greenDispl || st.mw, tp = lc.greenP || lc.testP;
+    const toc = Math.min(st.toc, S), lead = lc.greenLead || 15.69, mw = st.mw;
+    const flo = lc.greenFloat != null ? lc.greenFloat : Math.max(0, S - 13);
+    // doc p.47: below the float collar the internal profile is anchored at the external
+    // slurry pressure at the shoe and follows the slurry gradient upward:
+    //   P_shoe = P_ext(shoe) ;  P_internal = P_shoe − g·ρslurry·(TVDshoe − TVD)
+    const pExtG = z=> z <= toc ? PSI(mw, z) : PSI(mw, toc) + PSI(lead, z - toc);
+    const pShoeG = pExtG(S);
+    cases.burst.push({name:"Green cement test",
+      pi: z=> z <= flo ? tp + PSI(displ, z) : pShoeG - PSI(lead, S - z),
+      pe: pExtG});
+  }
+  if (lc.gasMud){
+    // Gas over Mud Ratio — StressCheck doc pp.41-44. GAS occupies the TOP fraction of the
+    // column, mud below the gas/mud interface. Anchored at pore@influx via mud gradient:
+    //   P_shoe   = P_pore@influx − g·ρmud·(TVDinflux − TVDshoe)
+    //   P_iface  = min(pore-anchored, frac(+MOE)-anchored) mud column up from the shoe
+    //   above iface: gas gradient;  below iface: mud gradient (continuous).
+    const zInfG = lc.gasMudInflux || Dn, fg = (lc.gasMudPctGas||50)/100;
+    const iface = T + (S - T)*fg, mw = lc.gasMudMW || st.mw;
+    const pIfPore = PSI(pore(zInfG), zInfG) - PSI(mw, zInfG - iface);
+    const pIfFrac = PSI(frac(S) + lc.gasMudMOE, S) - PSI(mw, S - iface);
+    const pIf = Math.min(pIfPore, pIfFrac);
+    cases.burst.push({name:"Gas over mud",
+      pi: z=> z >= iface ? pIf + PSI(mw, z - iface)
+                         : Math.max(0, pIf - lc.gasMudGrad*(iface - z)*FT),
+      pe: peB});
+  }
+  // Tubing Leak is a PRODUCTION load case (sur-pressure to the production annulus from a
+  // tubing leak near the wellhead — StressCheck doc pp.83-85). It has no meaning on drilling
+  // strings, so it is only evaluated for Production/Tieback strings even if left enabled.
+  const roleNow = baseRole(st.role || st.name);
+  const isProd = roleNow === "Production" || roleNow === "Tieback";
+  if (lc.leak && isProd){
+    const SITP = Math.max(0, PSI(pore(Dn), Dn) - gasG*Dn*FT);
+    cases.burst.push({name:"Tubing leak", pi: z=> SITP + PSI(pkr, z), pe: peB});
+  }
+  if (lc.test){
+    // Pressure Test — doc p.72: P_test applied only ABOVE the plug depth.
+    //   hanger→plug: P = P_test + g·ρmud·TVD ;  plug→shoe: P = g·ρmud·TVD
+    const mw = lc.testMW || st.mw, plug = lc.testPlug != null ? lc.testPlug : S;
+    cases.burst.push({name:"Pressure test",
+      pi: z=> (z <= plug ? lc.testP : 0) + PSI(mw, z), pe: peB});
+  }
+  if (lc.evac){
+    // Full / Partial Evacuation — internal empty above the mud level, mud below.
+    const lvl = lc.evacLevel != null ? lc.evacLevel : 0, mw = lc.evacMW || st.mw;
+    cases.collapse.push({name:"Full evacuation",
+      pi: z=> z <= lvl ? 0 : PSI(mw, z - lvl), pe: z=> PSI(mw, z)});
+  }
+  if (lc.lost){
+    // Lost Returns with Mud Drop — mud drops to balance pore at the lost-returns depth.
+    const zL = lc.lostDepth, poreL = lc.lostPore, mw = lc.lostMW || st.mw;
+    const h = Math.max(0, zL - poreL/(0.433*mw*FT));                        // mud drop level, m
+    cases.collapse.push({name:"Lost circulation", pi: z=> z < h ? 0 : PSI(mw, z - h), pe: z=> PSI(mw, z)});
+  }
+  if (lc.cmt){
+    // Cementing — doc pp.13-14: internal = DISPLACEMENT fluid (may be lighter than mud,
+    // e.g. seawater ⇒ extra collapse load both above and below TOC). External = mud above
+    // TOC, slurry below. cmtDispl defaults to the string mud if not entered.
+    const toc = Math.min(st.toc, S), displ = lc.cmtDispl || st.mw;
+    cases.collapse.push({name:"Cementing", pi: z=> PSI(displ, z),
+      pe: z=> z <= toc ? PSI(st.mw, z) : PSI(st.mw, toc) + PSI(cmtW, z - toc)});
+  }
+  if (lc.fluidGrad){
+    // Fluid Gradients w/ Pore Pressure (StressCheck doc p.12):
+    //   hanger→TOC :  P_external = g·rho_above·TVD + P_wh
+    //   TOC→shoe   :  P_toc = P_wh + g·rho_above·TVD_toc ;  P_ext = P_toc + g·rho_below·(TVD−TVD_toc)
+    // Internal is the string mud (collapse case: external > internal).
+    const toc = Math.min(st.toc, S), above = lc.fgAbove||st.mw, below = lc.fgBelow||st.mw, wh = lc.fgWellhead||0;
+    cases.collapse.push({name:"Fluid gradients + pore",
+      pi: z=> PSI(st.mw, z),
+      pe: z=> wh + (z <= toc ? PSI(above, z) : PSI(above, toc) + PSI(below, z - toc))});
+  }
+  if (lc.drillAhead){
+    // Drill Ahead — the next section is being drilled with a heavier mud; external is that
+    // heavier mud, internal is the current (lighter) mud. A collapse case for the shoe joint.
+    const mwNext = Math.max(st.mw, (maxPore(S, Dn) + 0.3));
+    cases.collapse.push({name:"Drill ahead", pi: z=> PSI(st.mw, z), pe: z=> PSI(mwNext, z)});
+  }
+  const Fa = z=> axialBelow(st, z, BF);                                      // lbf, per-section weights
+  const tocA = Math.min(st.toc, S);
+  /* Post-Cement Static (StressCheck doc): the string still hangs at the shoe immediately
+     after the job — cement is fluid, it does NOT yet carry the pipe. Buoyed weight is the
+     piston formulation with the ACTUAL fluid columns: displacement fluid inside; mud above
+     TOC and slurry below it outside.  F(z) = W_air(z→shoe) + P_i(shoe)·A_i − P_e(shoe)·A_o */
+  const airBelow = z => { let W=0;
+    for (const sp of sectionSpans(st)){ const a=Math.max(z,sp.from), b=sp.to;
+      if (b>a) W += pipeOf(sp.od, sp.wt).wt * (b-a) * FT; } return W; };
+  const displA = lc.cmtDispl || st.mw, slurA = lc.cmtW || st.mw;
+  const peShoeA = PSI(st.mw, tocA) + PSI(slurA, S - tocA);          // mud→TOC, slurry→shoe
+  const piShoeA = PSI(displA, S);                                    // displacement fluid inside
+  const pzS = pipeAt(st, S), AiS = 0.7854*pzS.id*pzS.id, AoS = 0.7854*pzS.od*pzS.od;
+  const FaPost = z => airBelow(z) + piShoeA*AiS - peShoeA*AoS;
+
+  if (lc.rih){
+    // Running in Hole (StressCheck doc pp.73-74): buoyed weight PLUS the shock load from
+    // stopping the pipe instantaneously (slips close / obstruction), peak velocity taken
+    // as 1.5x the average running speed. API field units:
+    //   F_shock = 0.9161 · V_avg(ft/s) · A_s(in²) · √(E·ρ_steel)   (E=30e6 psi, ρ=0.283 lb/in³)
+    const sqEr = Math.sqrt(30e6 * 0.283);
+    cases.axial.push({name:"Running in hole", f: z=>{
+      const pz = pipeAt(st, z), As = 0.7854*(pz.od*pz.od - pz.id*pz.id);
+      return Fa(z) + 0.9161 * (lc.rihSpeed || 0) * As * sqEr;
+    }});
+  } else {
+    cases.axial.push({name:"Running (buoyed wt)", f: Fa});
+  }
+  if (lc.op) cases.axial.push({name:"Overpull", f: z=> Fa(z) + OP});
+  if (lc.preCmt){
+    // Pre-Cement Static (doc pp.70-71): buoyed weight just before the cement job, with an
+    // optional applied surface force (pickup positive) felt over the whole string length.
+    cases.axial.push({name:"Pre-cement static", f: z=> Fa(z) + (lc.preCmtF || 0)});
+  }
+  if (lc.postCmt) cases.axial.push({name:"Post-cement static", f: FaPost});
+  if (lc.greenAx){
+    // Green Cement Pressure Test, axial branch (doc p.45): cement still fluid, so the test
+    // pressure acting on the plug produces a full piston force  F = P_test · A_i  added to
+    // the pre-set (uncemented) buoyed-weight profile over the whole string.
+    const pz = pipeAt(st, S), Ai = 0.7854*pz.id*pz.id;
+    cases.axial.push({name:"Green cement test (piston)", f: z=> Fa(z) + (lc.testP || 0) * Ai});
+  }
+  if (lc.svc){
+    // Service Loads (doc pp.75-76), SIMPLIFIED: aggregate worst axial after landing.
+    // Implemented as the post-cement profile plus the Poisson ballooning force from the
+    // largest enabled internal service pressure at the TOC:  ΔF = 2ν·Δp_i·A_i  (ν = 0.3).
+    // Full StressCheck service loads also include thermal strain and bending — see report §8.
+    /* Service Loads aggregate (doc): dominated by "piston forces at end areas" — the
+       largest enabled internal service pressure acting on the plug/float transmits the
+       FULL piston force P·A_i to the string above (verified against StressCheck: implied
+       axial 337,477 lbf = 1,185 psi × A_i(19.0") = 335,974 lbf; the previous 0.6×
+       ballooning-only term under-estimated it by 40%). Thermal strain term retained. */
+    let dpMax = 0;
+    for (const b of cases.burst){ const v = b.pi(S) - PSI(st.mw, S); if (v > dpMax) dpMax = v; }
+    const pzF = pipeAt(st, S), AiF = 0.7854*pzF.id*pzF.id;
+    const dTF = (lc.svcDT || 0) * 1.8;                       // user ΔT in °C → °F
+    cases.axial.push({name:"Service loads", f: z=>{
+      const pzz = pipeAt(st, z), Asz = 0.7854*(pzz.od*pzz.od - pzz.id*pzz.id);
+      return FaPost(z) + dpMax * AiF - 207 * Asz * dTF;      // end piston + thermal
+    }});
+  }
+
+  return {zArr, cases, S};
+}
+
+let lastSC = null;
+function runStressCheck(quiet){
+  if (!well.strings.length) seedDefaultStrings();
+  well.strings.forEach(normalizeString);
+  const st = curString(); if (!st) return;
+  const {zArr, cases} = buildProfiles(st);
+  const df = DF();
+
+  // per-depth pipe properties (tapered strings: these are step profiles, not constants)
+  const pipes  = zArr.map(z => pipeAt(st, z));
+  const brate  = pipes.map(p => burstRating(p.od, p.id, p.yp));
+  const pyArr  = pipes.map(p => bodyYield(p.od, p.id, p.yp));
+  const AsArr  = pipes.map(p => Math.PI/4*(p.od*p.od - p.id*p.id));
+
+  const axMax = zArr.map(z=> Math.max(...cases.axial.map(c=> c.f(z))));
+
+  const res = {burst:[], collapse:[], axial:[], vme:[], mins:{}};
+  cases.burst.forEach(c=>{
+    const load = zArr.map(z=> Math.max(0, c.pi(z) - c.pe(z)));
+    const sf = load.map((L,i)=> L > 1 ? brate[i]/L : 99);
+    res.burst.push({name:c.name, load, sf, min: Math.min(...sf), c});
+  });
+
+  // collapse rating at each depth, reduced by the local axial stress
+  const cRate = zArr.map((z,i)=> collapseRating(pipes[i].od, pipes[i].id, pipes[i].yp,
+                                   Math.max(0, axMax[i]/AsArr[i])).p);
+  const useVector = collapseMethod() === "vector";
+  cases.collapse.forEach(c=>{
+    const load = zArr.map(z=> Math.max(0, c.pe(z) - c.pi(z)));
+    const piArr = zArr.map(z=> c.pi(z));                       // internal pressure for Feff
+    const sf = load.map((L,i)=> {
+      if (L <= 1) return 99;
+      return useVector
+        ? vectorCollapseSF(pipes[i].od, pipes[i].id, pipes[i].yp, L, axMax[i], AsArr[i], piArr[i])
+        : cRate[i]/L;
+    });
+    res.collapse.push({name:c.name, load, sf, min: Math.min(...sf), c});
+  });
+
+  cases.axial.forEach(c=>{
+    const load = zArr.map(z=> c.f(z));
+    const sf = load.map((F,i)=> Math.abs(F) > 1 ? pyArr[i]/Math.abs(F) : 99);
+    res.axial.push({name:c.name, load, sf, min: Math.min(...sf), c});
+  });
+
+  /* Triaxial — von Mises fix (v3.13):
+     (1) every case is paired with ITS OWN external profile (the old generic backup
+         fabricated a ~3,000 psi false differential for Green Cement -> bogus FAIL);
+     (2) service pressure loads act on a CEMENTED string, so the coincident axial is
+         the post-cement service profile, not the running/shock installation maximum
+         (tension offsets hoop in von Mises, so the wrong pairing INFLATED the SF).
+     Uses only res.axial data already in scope — no external variables. */
+  const svcAx = (res.axial.find(a=> /post-cement/i.test(a.name)) || res.axial[0] || null);
+  const axSvc = zArr.map((z,i)=> svcAx ? svcAx.load[i] : axMax[i]);
+  const vme = zArr.map((z,i)=>{
+    const p = pipes[i];
+    let worst = 0;
+    res.burst.forEach(b=>{ worst = Math.max(worst, vmeStress(p.od, p.id, b.c.pi(z), b.c.pe(z), axSvc[i])); });
+    res.collapse.forEach(c=>{ worst = Math.max(worst, vmeStress(p.od, p.id, c.c.pi(z), c.c.pe(z), axSvc[i])); });
+    if (!worst) worst = vmeStress(p.od, p.id, PSI(st.mw,z), PSI(st.mw,z), axSvc[i]);
+    return worst;
+  });
+  const vmeSF = vme.map((s,i)=> s > 1 ? pipes[i].yp/s : 99);
+  res.vme = {stress: vme, sf: vmeSF, min: Math.min(...vmeSF)};
+
+  res.mins = {
+    burst: res.burst.length ? Math.min(...res.burst.map(x=>x.min)) : 99,
+    collapse: res.collapse.length ? Math.min(...res.collapse.map(x=>x.min)) : 99,
+    axial: res.axial.length ? Math.min(...res.axial.map(x=>x.min)) : 99,
+    vme: res.vme.min
+  };
+  lastSC = {st, zArr, res, brate, cRate, py: pyArr, df, pipes, axMax, axSvc, As: AsArr, useVector};
+
+  if (quiet) return;              // evaluation only — skip all rendering
+  renderPipeProps(); renderSFSummary(); renderLCTable(); renderDebugTable(); drawSCCharts(); drawSchematic(); buildReport(); refreshTree();
+  const secTxt = st.sections.length > 1 ? st.sections.length + " sections" : st.sections[0].wt + "# " + st.sections[0].grade;
+  setStatus(`StressCheck: ${roleLabel(st)} ${fmtOD(st.od)} (${secTxt}) — min SF B ${fmtSF(res.mins.burst)} / C ${fmtSF(res.mins.collapse)}${useVector?"(V)":""} / A ${fmtSF(res.mins.axial)} / T ${fmtSF(res.mins.vme)}`);
+}
+const fmtSF = v => v > 20 ? "—" : v.toFixed(2);
+
+function autoSelectPipe(){
+  const st = curString(); if (!st) return;
+  const df = DF(), sour = document.getElementById("sourService").checked;
+  const saved = st.sections.map(s=>({...s}));
+  let allOK = true;
+
+  // optimise section by section, each within its own OD
+  for (let i = 0; i < st.sections.length; i++){
+    const cands = [];
+    PIPES[st.sections[i].od].forEach(([wt])=> GRADE_ORDER.forEach(gn=>{
+      if (sour && !naceOK(gn)) return;
+      cands.push({wt, gn, score: wt * GRADES[gn].cost});
+    }));
+    cands.sort((a,b)=> a.score - b.score);
+    let found = null;
+    for (const c of cands){
+      st.sections[i].wt = c.wt; st.sections[i].grade = c.gn;
+      normalizeString(st); runStressCheck(true);   // quiet: no redraw while searching
+      const m = lastSC.res.mins;
+      // check the governing SFs only within this section's depth span
+      const span = sectionSpans(st)[i];
+      const inSpan = lastSC.zArr.map((z,k)=> z >= span.from - 0.01 && z <= span.to + 0.01);
+      const minIn = (arr)=> Math.min(...arr.filter((_,k)=> inSpan[k]));
+      const okB = lastSC.res.burst.every(x=> minIn(x.sf) >= df.burst);
+      const okC = lastSC.res.collapse.every(x=> minIn(x.sf) >= df.collapse);
+      const okA = lastSC.res.axial.every(x=> minIn(x.sf) >= df.tension);
+      const okT = minIn(lastSC.res.vme.sf) >= df.vme;
+      if (okB && okC && okA && okT){ found = c; break; }
+    }
+    if (!found){ allOK = false; st.sections[i] = {...saved[i]}; }
+  }
+  normalizeString(st); populateStringSelect(); recalcAll(false);
+  setStatus(allOK
+    ? `Auto-select: minimum-cost pipe found for all ${st.sections.length} section(s)${sour?" (NACE list)":""} — cost $${Math.round(stringCost(st)).toLocaleString()}.`
+    : "Auto-select: no catalog pipe meets all design factors for at least one section — review loads or DFs.");
+}
+
+/* ---------- UI rendering ---------- */
+function renderPipeProps(){
+  if (!lastSC) return;
+  const st = lastSC.st;
+  const spans = sectionSpans(st);
+  const sour = document.getElementById("sourService").checked;
+  let h = "";
+  spans.forEach(s=>{
+    const p = pipeOf(s.od, s.wt), yp = GRADES[s.grade].yp;
+    const c0 = collapseRating(p.od, p.id, yp, 0);
+    const nace = sour ? (naceOK(s.grade) ? ' <span class="sf-ok" title="' + naceNote(s.grade) + '">NACE OK</span>'
+                                          : ' <span class="sf-bad" title="' + naceNote(s.grade) + '">NOT NACE @ ' + serviceTemp() + '°C</span>') : "";
+    h += `<div style="border-bottom:1px solid #e6e2d7;padding:2px 0">
+      <b>${Math.round(s.from)}–${Math.round(s.to)} m</b> · ${fmtOD(s.od)} ${s.wt}# ${s.grade}${nace}<br>
+      ID ${p.id.toFixed(3)} · drift ${p.drift.toFixed(3)} · D/t ${c0.dt.toFixed(1)} (${c0.regime})<br>
+      hole ${fmtHole(s.hole)} · annular clearance ${((s.hole - parseFloat(s.od))/2).toFixed(3)} in/side<br>
+      burst <b>${Math.round(burstRating(p.od,p.id,yp)).toLocaleString()}</b> · collapse <b>${Math.round(c0.p).toLocaleString()}</b> psi ·
+      yield <b>${Math.round(bodyYield(p.od,p.id,yp)/1000).toLocaleString()}</b> klbf</div>`;
+  });
+  const cost = stringCost(st);
+  const total = well.strings.reduce((s,x)=> s + stringCost(x), 0);
+  h += `<div style="padding-top:3px">Design cost — this string <b>$${Math.round(cost).toLocaleString()}</b> · well total <b>$${Math.round(total).toLocaleString()}</b></div>`;
+  document.getElementById("pipeProps").innerHTML = h;
+}
+
+/* SF display mode — StressCheck parity:
+   Normalized: shown SF = (rating/load) / DF, pass threshold 1.00 (SC "Norm" columns).
+   Absolute : shown SF = rating/load,        pass threshold = DF. */
+function sfIsNorm(){ const e=document.getElementById("sfNorm"); return !e || e.checked; }
+function sfView(v, d){ return sfIsNorm() ? {v: v/d, thr: 1} : {v, thr: d}; }
+
+function renderSFSummary(){
+  if (!lastSC) return;
+  const m = lastSC.res.mins, df = lastSC.df;
+  const row = (lab, v, d)=>{
+    const s = sfView(v, d);
+    const cls = s.v >= s.thr ? "sf-ok" : (s.v >= s.thr*0.95 ? "sf-warn" : "sf-bad");
+    return `<div class="kv"><span>${lab} (DF ${d.toFixed(2)})${sfIsNorm()?" · norm":""}</span><span class="mono ${cls}">${fmtSF(s.v)}</span></div>`;
+  };
+  const pass = m.burst>=df.burst && m.collapse>=df.collapse && m.axial>=df.tension && m.vme>=df.vme;
+  document.getElementById("sfSummary").innerHTML =
+    row("Burst", m.burst, df.burst) + row("Collapse", m.collapse, df.collapse) +
+    row("Tension", m.axial, df.tension) + row("Triaxial", m.vme, df.vme) +
+    `<div class="hr"></div><div style="text-align:center"><span class="badge ${pass?"ok":"bad"}">${pass?"DESIGN PASSES":"DESIGN FAILS"}</span></div>`;
+  const badge=(id,v,d)=>{const s=sfView(v,d);document.getElementById(id).innerHTML=`<span class="badge ${s.v>=s.thr?"ok":"bad"}">SF ${fmtSF(s.v)}</span>`;};
+  badge("sfBurstBadge", m.burst, df.burst); badge("sfCollapseBadge", m.collapse, df.collapse);
+  badge("sfAxialBadge", m.axial, df.tension); badge("sfVMEBadge", m.vme, df.vme);
+}
+function renderDebugTable(){
+  const body = document.getElementById("dbgBody");
+  if (!lastSC || !body || body.style.display === "none") return;
+  const {res, zArr, st, df} = lastSC;
+  const S = zArr[zArr.length-1];
+  const zEl = document.getElementById("dbgZ");
+  let z = parseNum(zEl.value);
+  if (!Number.isFinite(z) || z < 0 || z > S){ z = S; zEl.value = Math.round(S); }
+  const i = zArr.reduce((bi,zz,ii)=> Math.abs(zz-z)<Math.abs(zArr[bi]-z)?ii:bi, 0);
+  z = zArr[i];
+  const pz = pipeAt(st, z), yp = pz.yp;
+  const FaBase = lastSC.axSvc ? lastSC.axSvc[i] : (res.axial[0] ? res.axial[0].c.f(z) : 0);   // service axial — same pairing as triaxial
+  const fmt = v => Math.round(v).toLocaleString();
+  const sfv = v => { const s = sfView(v, df.vme); return {t: v>=99?"—":s.v.toFixed(2), ok: s.v>=s.thr}; };
+  let rows = "";
+  const add = (mode, name, pi, po, fa) => {
+    const c = stressParts(pz.od, pz.id, pi, po, fa);
+    const sf = c.vme > 1 ? yp/c.vme : 99, sv = sfv(sf);
+    rows += `<tr><td class="l">${mode}</td><td class="l">${name}</td>
+      <td>${fmt(pi)}</td><td>${fmt(po)}</td>
+      <td>${fmt(c.sh)}</td><td>${fmt(c.sr)}</td><td>${fmt(c.sz)}</td>
+      <td><b>${fmt(c.vme)}</b></td><td class="${sv.ok?"sf-ok":"sf-bad"}">${sv.t}</td></tr>`;
+  };
+  res.burst.forEach(b=> add("Burst", b.name, b.c.pi(z), b.c.pe(z), FaBase));
+  res.collapse.forEach(c=> add("Collapse", c.name, c.c.pi(z), c.c.pe(z), FaBase));
+  res.axial.forEach(a=> add("Axial", a.name, PSI(st.mw, z), PSI(st.mw, z), a.c.f(z)));
+  document.getElementById("dbgTable").innerHTML =
+    `<thead><tr><th>Mode</th><th>Load case</th><th>pi</th><th>pe</th>
+      <th>σh</th><th>σr</th><th>σa</th><th>Von Mises</th><th>SF${sfIsNorm()?" (Norm)":""}</th></tr></thead>
+     <tbody>${rows}</tbody>
+     <tbody><tr><td colspan="9" class="l" style="font-size:9px;color:#666">
+       Pipe at ${Math.round(z).toLocaleString()} m: ${pz.od}″ ${pz.wt}# ${pz.grade} (Yp ${fmt(yp)} psi).
+       Burst/collapse rows use the running axial profile; axial rows use mud hydrostatic inside and out.
+       SF = Yp / σVME${sfIsNorm()?" ÷ triaxial DF":""}.</td></tr></tbody>`;
+}
+function renderLCTable(){
+  if (!lastSC) return;
+  const t = document.getElementById("lcTable");
+  const {res, zArr, df} = lastSC;
+  let html = `<thead><tr><th>Mode</th><th>Load case</th><th>Governing depth (m)</th><th>Load</th><th>Rating there</th><th>Min SF${sfIsNorm()?" (Norm)":""}</th><th>vs DF</th></tr></thead><tbody>`;
+  const push = (mode, name, sf, load, ratingAt, d)=>{
+    const i = sf.indexOf(Math.min(...sf));
+    const sv = sfView(sf[i], d), cls = sv.v>=sv.thr?"ok":"bad";
+    html += `<tr><td class="l">${mode}</td><td class="l">${name}</td><td>${Math.round(zArr[i]).toLocaleString()}</td>
+      <td>${Math.round(load[i]).toLocaleString()}</td><td>${Math.round(ratingAt(i)).toLocaleString()}</td>
+      <td class="${cls==="ok"?"sf-ok":"sf-bad"}">${fmtSF(sv.v)}</td><td><span class="badge ${cls}">${cls==="ok"?"PASS":"FAIL"}</span></td></tr>`;
+  };
+  res.burst.forEach(b=> push("Burst", b.name, b.sf, b.load, i=>lastSC.brate[i], df.burst));
+  res.collapse.forEach(c=> push("Collapse" + (lastSC.useVector?" (V)":""), c.name, c.sf, c.load, i=>lastSC.cRate[i], df.collapse));
+  res.axial.forEach(a=> push("Tension", a.name, a.sf, a.load.map(Math.abs), i=>lastSC.py[i], df.tension));
+  push("Triaxial", "von Mises envelope", res.vme.sf, res.vme.stress, i=>lastSC.pipes[i].yp, df.vme);
+  html += "</tbody>";
+  t.innerHTML = html;
+}
+
+/* ---------- Charts ---------- */
+let charts = {};
+function mkChart(id, cfg){
+  const cv = document.getElementById(id); if (!cv) return;
+  const existing = Chart.getChart(cv);
+  if (existing) existing.destroy();
+  charts[id] = new Chart(cv, cfg);
+}
+const depthOpts = (xTitle)=>({
+  responsive:true, maintainAspectRatio:false, animation:false,
+  scales:{ y:{type:"linear", reverse:true, min:0, title:{display:true,text:"TVD (m)",font:{size:9}}, ticks:{font:{size:9}}},
+           x:{type:"linear", title:{display:true,text:xTitle,font:{size:9}}, ticks:{font:{size:9}}}},
+  plugins:{legend:{position:"top",labels:{font:{size:9},boxWidth:14}}},
+  parsing:false, elements:{point:{radius:0}}, spanGaps:true
+});
+const xy = (xs,zs)=> xs.map((x,i)=>({x, y: zs[i]}));
+const PALETTE = ["#b91c1c","#b45309","#7c3aed","#0e7490","#3f6212"];
+
+function drawMudChart(){
+  const p = seatParams();
+  const zs=[]; for(let z=0;z<=p.TD;z+=p.TD/60) zs.push(z);
+  const ds = [
+    {label:"Pore EMW", data: zs.map(z=>({x:pore(z),y:z})), borderColor:"#b91c1c", borderWidth:2},
+    {label:"Frac EMW", data: zs.map(z=>({x:frac(z),y:z})), borderColor:"#0f7b3a", borderWidth:2},
+    {label:"Frac − kick margin", data: zs.map(z=>({x:frac(z)-p.km,y:z})), borderColor:"#0f7b3a", borderWidth:1.5, borderDash:[5,3]},
+    {label:"Pore + trip margin", data: zs.map(z=>({x:pore(z)+p.trip,y:z})), borderColor:"#b91c1c", borderWidth:1.5, borderDash:[5,3]}
+  ];
+  if (well.seats){
+    const L = well.seats.list, pts=[];
+    for (let i = L.length - 2; i >= 0; i--){
+      const s = L[i];
+      pts.push({x: s.mud, y: s.nextTD});
+      pts.push({x: s.mud, y: s.shoe});
+    }
+    ds.push({label:"Mud / seat staircase", data: pts, borderColor:"#0b3d91", borderWidth:2.5});
+    L.forEach(s=> ds.push({label:`${s.role} shoe`, data:[{x: pore(s.shoe), y: s.shoe},{x: frac(s.shoe), y: s.shoe}],
+      borderColor:"#6b7280", borderWidth:1, borderDash:[2,2], pointRadius:0, showLine:true}));
+  }
+  mkChart("mudChart", {type:"line", data:{datasets:ds}, options:{...depthOpts("EMW (sg)"),
+    plugins:{legend:{position:"top",labels:{font:{size:9},boxWidth:14,filter:(l)=>!l.text.includes("shoe")}}}}});
+}
+
+function drawSCCharts(){
+  if (!lastSC) return;
+  const {zArr, res, brate, cRate, py, df, g, pipe, axMax} = lastSC;
+  const bd = res.burst.map((b,i)=>({label:b.name, data: xy(b.load, zArr), borderColor:PALETTE[i%5], borderWidth:2}));
+  bd.push({label:"Rating", data: xy(brate, zArr), borderColor:"#1d4ed8", borderWidth:2, borderDash:[4,3]});
+  bd.push({label:"Rating / DF", data: xy(brate.map(v=>v/df.burst), zArr), borderColor:"#1d4ed8", borderWidth:1.2, borderDash:[2,3]});
+  mkChart("burstChart", {type:"line", data:{datasets:bd}, options: depthOpts("Differential burst pressure (psi)")});
+
+  const cd = res.collapse.map((c,i)=>({label:c.name, data: xy(c.load, zArr), borderColor:PALETTE[i%5], borderWidth:2}));
+  cd.push({label:"Rating (axial-corr.)", data: xy(cRate, zArr), borderColor:"#1d4ed8", borderWidth:2, borderDash:[4,3]});
+  cd.push({label:"Rating / DF", data: xy(cRate.map(v=>v/df.collapse), zArr), borderColor:"#1d4ed8", borderWidth:1.2, borderDash:[2,3]});
+  mkChart("collapseChart", {type:"line", data:{datasets:cd}, options: depthOpts("Differential collapse pressure (psi)")});
+
+  const ad = res.axial.map((a,i)=>({label:a.name, data: xy(a.load.map(v=>v/1000), zArr), borderColor:PALETTE[i%5], borderWidth:2}));
+  ad.push({label:"Body yield", data: xy(py.map(v=>v/1000), zArr), borderColor:"#1d4ed8", borderWidth:2, borderDash:[4,3]});
+  ad.push({label:"Yield / Tension DF", data: xy(py.map(v=>v/1000/df.tension), zArr), borderColor:"#1d4ed8", borderWidth:1.2, borderDash:[2,3]});
+  mkChart("axialChart", {type:"line", data:{datasets:ad}, options: depthOpts("Axial force (klbf)")});
+
+  drawVMEEnvelope();
+}
+
+/* von Mises design envelope with all load-case points plotted */
+function drawVMEEnvelope(){
+  if (!lastSC) return;
+  const {res, zArr, pipes, df, axMax, py} = lastSC;
+  const pipe = pipes[pipes.length-1];        // envelope drawn for the shoe joint
+  const g = {yp: pipe.yp};
+  const envY  = vmeEnvelope(pipe.od, pipe.id, pipe.yp);
+  const envDF = vmeEnvelope(pipe.od, pipe.id, pipe.yp/df.vme);
+  const ds = [
+    {label:"VME envelope (Yp)", data:[...envY.burst, ...envY.collapse.slice().reverse()].sort(()=>0), showLine:true, borderColor:"#7c3aed", borderWidth:2, pointRadius:0,
+     // draw as two branches to avoid crossing artifacts:
+    },
+  ];
+  ds.length = 0;
+  ds.push({label:"VME envelope (Yp)", data: envY.burst, showLine:true, borderColor:"#7c3aed", borderWidth:2, pointRadius:0});
+  ds.push({label:"env-collapse", data: envY.collapse, showLine:true, borderColor:"#7c3aed", borderWidth:2, pointRadius:0});
+  ds.push({label:"VME / DF", data: envDF.burst, showLine:true, borderColor:"#7c3aed", borderWidth:1.2, borderDash:[4,3], pointRadius:0});
+  ds.push({label:"envdf-collapse", data: envDF.collapse, showLine:true, borderColor:"#7c3aed", borderWidth:1.2, borderDash:[4,3], pointRadius:0});
+
+  // API ratings overlay across the envelope's axial span
+  const pyShoe = py[py.length-1]/1000;
+  const xMin = envY.burst.length ? envY.burst[0].x : -pyShoe;
+  const xMax = envY.burst.length ? envY.burst[envY.burst.length-1].x : pyShoe;
+  const bShoe = lastSC.brate[lastSC.brate.length-1];
+  ds.push({label:"API burst rating", data:[{x:xMin,y:bShoe},{x:xMax,y:bShoe}], showLine:true, borderColor:"#1d4ed8", borderWidth:1.5, borderDash:[6,3], pointRadius:0});
+  const As = lastSC.As[lastSC.As.length-1];
+  const colPts = [];
+  for (let i=0;i<=40;i++){
+    const Fa = xMin + (xMax-xMin)*i/40;                        // klbf
+    const sa = Math.max(0, Fa*1000/As);
+    colPts.push({x:Fa, y: -collapseRating(pipe.od, pipe.id, g.yp, sa).p});
+  }
+  ds.push({label:"API collapse rating", data: colPts, showLine:true, borderColor:"#0e7490", borderWidth:1.5, borderDash:[6,3], pointRadius:0});
+  ds.push({label:"(envelope shown for shoe joint "+pipe.wt+"# "+pipe.grade+")", data:[], showLine:false, pointRadius:0});
+
+  // load points: every enabled case, every depth station (burst +Δp, collapse −Δp)
+  res.burst.forEach((b,i)=>{
+    ds.push({label:"● "+b.name, data: zArr.map((z,j)=>({x: (lastSC.axSvc?lastSC.axSvc[j]:axMax[j])/1000, y: b.c.pi(z)-b.c.pe(z)})),
+             showLine:false, pointRadius:2.4, pointBackgroundColor:PALETTE[i%5], borderColor:PALETTE[i%5]});
+  });
+  res.collapse.forEach((c,i)=>{
+    ds.push({label:"● "+c.name, data: zArr.map((z,j)=>({x: axMax[j]/1000, y: -(c.c.pe(z)-c.c.pi(z))})),
+             showLine:false, pointRadius:2.4, pointStyle:"triangle", pointBackgroundColor:PALETTE[(i+2)%5], borderColor:PALETTE[(i+2)%5]});
+  });
+
+  mkChart("vmeChart", {type:"scatter", data:{datasets:ds}, options:{
+    responsive:true, maintainAspectRatio:false, animation:false, parsing:false,
+    scales:{ x:{type:"linear", title:{display:true,text:"Effective tension (klbf)",font:{size:9}}, ticks:{font:{size:9}}},
+             y:{type:"linear", title:{display:true,text:"Δp  (+burst / −collapse, psi)",font:{size:9}}, ticks:{font:{size:9}}}},
+    plugins:{legend:{position:"top",labels:{font:{size:9},boxWidth:12,
+      filter:(l)=> l.text !== "env-collapse" && l.text !== "envdf-collapse"}}}
+  }});
+}
+
+/* ---------- Formation editor + paste import ---------- */
+function renderFm(){
+  const b = document.getElementById("fmBody"); if (!b) return;
+  b.innerHTML = "";
+  well.formations.forEach((r,i)=>{
+    b.insertAdjacentHTML("beforeend",
+      `<tr><td><input class="inp" style="width:78px" type="number" value="${r[0]}" onchange="fmEdit(${i},0,this.value)"></td>
+       <td><input class="inp" style="width:64px" type="number" step="0.1" value="${r[1]}" onchange="fmEdit(${i},1,this.value)"></td>
+       <td><input class="inp" style="width:64px" type="number" step="0.1" value="${r[2]}" onchange="fmEdit(${i},2,this.value)"></td>
+       <td><button class="btn small" onclick="fmDel(${i})">✕</button></td></tr>`);
+  });
+  drawFmChart(); renderFmWarning();
+}
+function fmEdit(i,j,v){ let n = +v; if (j>0){ const c = toSG(n); if (c!==n){ n=c; setStatus("EMW converted from ppg → sg"); } }
+  well.formations[i][j] = n; well.formations.sort((a,b)=>a[0]-b[0]); recalcAll(); }
+function fmDel(i){ if (well.formations.length>2){ well.formations.splice(i,1); recalcAll(); } }
+function addFmRow(){ const last = well.formations[well.formations.length-1]; well.formations.push([last[0]+300, last[1], last[2]]); recalcAll(); }
+
+/* Paste TVD/pore/frac from Excel or text: tabs, commas, semicolons or spaces */
+function parsePastedFm(){
+  const txt = document.getElementById("fmPaste").value || "";
+  const rows = [];
+  txt.split(/\r?\n/).forEach(line=>{
+    const nums = line.trim().split(/[\t,;]+|\s{1,}/).map(s=>parseFloat(s.replace(",", "."))).filter(Number.isFinite);
+    if (nums.length >= 3) rows.push([nums[0], nums[1], nums[2]]);
+  });
+  // ppg auto-detect: if the median pore value is > 5 the table was pasted in ppg
+  if (rows.length){
+    const med = rows.map(r=>r[1]).sort((a,b)=>a-b)[Math.floor(rows.length/2)];
+    if (med > 5){
+      rows.forEach(r=>{ r[1] = +(r[1]/8.345).toFixed(3); r[2] = +(r[2]/8.345).toFixed(3); });
+      const el = document.getElementById("fmPasteInfo");
+      if (el) el.innerHTML = '<span class="sf-ok">ppg detected — values auto-converted to sg (÷8.345).</span>';
+    }
+  }
+  return rows;
+}
+function pasteFm(mode){
+  const rows = parsePastedFm();
+  const info = document.getElementById("fmPasteInfo");
+  if (!rows.length){ info.innerHTML = '<span class="sf-bad">No numeric rows found — expected 3 columns: TVD(m), pore(sg), frac(sg).</span>'; return; }
+  if (mode === "replace") well.formations = rows;
+  else well.formations = well.formations.concat(rows);
+  // dedupe by depth, sort
+  const seen = new Map();
+  well.formations.forEach(r=> seen.set(Math.round(r[0]), r));
+  well.formations = [...seen.values()].sort((a,b)=>a[0]-b[0]);
+  info.innerHTML = `<span class="sf-ok">${rows.length} rows imported (${mode}). Table now has ${well.formations.length} points.</span>`;
+  document.getElementById("fmPaste").value = "";
+  recalcAll();
+}
+function fmDataTD(){ return well.formations[well.formations.length-1][0]; }
+function renderFmWarning(){
+  const el = document.getElementById("fmWarn"); if (!el) return;
+  const dataTD = fmDataTD();
+  const wellTD = numOr("csTD", 0);
+  if (wellTD > dataTD + 1){
+    el.innerHTML = `<span class="sf-bad">⚠ Formation data stops at ${Math.round(dataTD).toLocaleString()} m but the well reaches ${Math.round(wellTD).toLocaleString()} m.</span> ` +
+      `Pore and fracture gradients are held constant below ${Math.round(dataTD).toLocaleString()} m (flat extrapolation), which is <b>not</b> a safe basis for the deepest section — add rows down to TD.`;
+  } else el.innerHTML = `<span class="sf-ok">✓ Formation data covers the full well depth.</span>`;
+}
+function drawFmChart(){
+  const TD = Math.max(fmDataTD(), numOr("csTD", 0));
+  const zs=[]; for(let z=0;z<=TD;z+=TD/60) zs.push(z);
+  mkChart("fmChart", {type:"line", data:{datasets:[
+    {label:"Pore EMW", data: zs.map(z=>({x:pore(z),y:z})), borderColor:"#b91c1c", borderWidth:2},
+    {label:"Frac EMW", data: zs.map(z=>({x:frac(z),y:z})), borderColor:"#0f7b3a", borderWidth:2}
+  ]}, options: depthOpts("EMW (sg)")});
+}
+
+/* ---------- Compass (directional survey — minimum curvature) ----------
+   Standard minimum-curvature method: for each MD interval between two stations,
+   the dogleg angle DL is found from the inclination/azimuth change, and a ratio
+   factor RF = (2/DL)·tan(DL/2) turns the straight-line average into the curved-arc
+   solution. DLS is reported in °/30 m to match this app's metric depths. */
+function computeSurvey(){
+  const st = [...well.survey.stations].sort((a,b)=> a.md - b.md);
+  const rows = [{md: st[0].md, inc: st[0].inc, azi: st[0].azi, tvd:0, ns:0, ew:0, dls:0}];
+  for (let i = 1; i < st.length; i++){
+    const p = st[i-1], c = st[i];
+    const dMD = c.md - p.md;
+    if (!(dMD > 0)){ rows.push({md:c.md, inc:c.inc, azi:c.azi, tvd:rows[i-1].tvd, ns:rows[i-1].ns, ew:rows[i-1].ew, dls:0}); continue; }
+    const I1=p.inc*Math.PI/180, I2=c.inc*Math.PI/180, A1=p.azi*Math.PI/180, A2=c.azi*Math.PI/180;
+    let cosDL = Math.cos(I2-I1) - Math.sin(I1)*Math.sin(I2)*(1-Math.cos(A2-A1));
+    cosDL = Math.max(-1, Math.min(1, cosDL));
+    const DL = Math.acos(cosDL);
+    const RF = DL < 1e-7 ? 1 : (2/DL)*Math.tan(DL/2);
+    const dTVD = (dMD/2)*(Math.cos(I1)+Math.cos(I2))*RF;
+    const dNS  = (dMD/2)*(Math.sin(I1)*Math.cos(A1)+Math.sin(I2)*Math.cos(A2))*RF;
+    const dEW  = (dMD/2)*(Math.sin(I1)*Math.sin(A1)+Math.sin(I2)*Math.sin(A2))*RF;
+    rows.push({md:c.md, inc:c.inc, azi:c.azi,
+      tvd: rows[i-1].tvd + dTVD, ns: rows[i-1].ns + dNS, ew: rows[i-1].ew + dEW,
+      dls: (DL*180/Math.PI) * (30/dMD)});
+  }
+  const vsAzi = (well.survey.vsAzi != null ? well.survey.vsAzi : (rows[rows.length-1].azi||0)) * Math.PI/180;
+  rows.forEach(r=>{ r.hd = Math.hypot(r.ns, r.ew); r.vs = r.ns*Math.cos(vsAzi) + r.ew*Math.sin(vsAzi); });
+  return rows;
+}
+function svEdit(i, key, val){
+  const n = parseNum(val);
+  if (!Number.isFinite(n)){ renderSurvey(); return; }
+  well.survey.stations[i][key] = key === "md" ? Math.max(0, n) : n;
+  well.survey.stations.sort((a,b)=> a.md - b.md);
+  renderSurvey();
+}
+function svAdd(){
+  const arr = well.survey.stations, last = arr[arr.length-1];
+  arr.push({md: last.md + 100, inc: last.inc, azi: last.azi});
+  renderSurvey();
+}
+function svDel(i){
+  if (well.survey.stations.length <= 2) return;
+  well.survey.stations.splice(i,1);
+  renderSurvey();
+}
+function svReset(){
+  const TD = numOr("csTD", 3800);
+  well.survey.stations = [{md:0, inc:0, azi:0}, {md:TD, inc:0, azi:0}];
+  well.survey.vsAzi = null;
+  const el = document.getElementById("svVsAzi"); if (el) el.value = "";
+  renderSurvey();
+  setStatus("Directional survey reset to vertical.");
+}
+function svVsAziChange(){
+  const raw = (document.getElementById("svVsAzi").value || "").trim();
+  const n = parseNum(raw);
+  well.survey.vsAzi = (raw === "" || !Number.isFinite(n)) ? null : ((n % 360) + 360) % 360;
+  renderSurvey();
+}
+function svApply(){
+  const rows = computeSurvey(), last = rows[rows.length-1];
+  const tvd = Math.round(last.tvd);
+  document.getElementById("csTD").value = tvd;
+  // syncChain() (called by recalcAll) re-derives the TD field from the deepest string's shoe,
+  // so that shoe has to move too or it would just overwrite the value just set above.
+  if (well.strings.length) well.strings[well.strings.length-1].shoe = tvd;
+  populateStringSelect();
+  recalcAll();
+  switchTab("casingseat");
+  setStatus(`Well TD set to ${tvd.toLocaleString()} m TVD from the directional survey (MD ${Math.round(last.md).toLocaleString()} m).`);
+}
+function parsePastedSurvey(){
+  const txt = document.getElementById("svPaste").value || "";
+  const rows = [];
+  txt.split(/\r?\n/).forEach(line=>{
+    const nums = line.trim().split(/[\t,;]+|\s{1,}/).map(s=>parseFloat(s.replace(",", "."))).filter(Number.isFinite);
+    if (nums.length >= 3) rows.push({md:nums[0], inc:nums[1], azi:nums[2]});
+  });
+  return rows;
+}
+function svPasteApply(mode){
+  const rows = parsePastedSurvey();
+  const info = document.getElementById("svPasteInfo");
+  if (!rows.length){ info.innerHTML = '<span class="sf-bad">No numeric rows found — expected 3 columns: MD(m), Inc(deg), Azi(deg).</span>'; return; }
+  well.survey.stations = mode === "replace" ? rows : well.survey.stations.concat(rows);
+  const seen = new Map();
+  well.survey.stations.forEach(r=> seen.set(Math.round(r.md*100), r));
+  well.survey.stations = [...seen.values()].sort((a,b)=> a.md - b.md);
+  if (well.survey.stations.length < 2) well.survey.stations.push({md:(well.survey.stations[0]?.md||0)+100, inc:0, azi:0});
+  info.innerHTML = `<span class="sf-ok">${rows.length} rows imported (${mode}). Survey now has ${well.survey.stations.length} stations.</span>`;
+  document.getElementById("svPaste").value = "";
+  renderSurvey();
+}
+function renderSurvey(){
+  const b = document.getElementById("svBody"); if (!b) return;
+  const rows = computeSurvey();
+  b.innerHTML = well.survey.stations.map((s,i)=>{
+    const r = rows[i];
+    const dlsCls = r.dls > 6 ? "sf-bad" : r.dls > 3 ? "sf-warn" : "sf-ok";
+    return `<tr>
+      <td><input class="inp" style="width:56px" type="number" value="${s.md}" onchange="svEdit(${i},'md',this.value)"></td>
+      <td><input class="inp" style="width:48px" type="number" step="0.1" value="${s.inc}" onchange="svEdit(${i},'inc',this.value)"></td>
+      <td><input class="inp" style="width:52px" type="number" step="0.1" value="${s.azi}" onchange="svEdit(${i},'azi',this.value)"></td>
+      <td class="mono">${r.tvd.toFixed(1)}</td>
+      <td class="mono">${r.ns.toFixed(1)}</td>
+      <td class="mono">${r.ew.toFixed(1)}</td>
+      <td class="mono">${r.vs.toFixed(1)}</td>
+      <td class="mono ${dlsCls}">${r.dls.toFixed(2)}</td>
+      <td><button class="btn small" onclick="svDel(${i})" ${well.survey.stations.length<=2?"disabled":""}>✕</button></td>
+    </tr>`;
+  }).join("");
+  const last = rows[rows.length-1];
+  const maxDLS = rows.reduce((m,r)=> r.dls > m.dls ? r : m, {dls:-1, md:0});
+  const bearing = ((Math.atan2(last.ew, last.ns)*180/Math.PI) + 360) % 360;
+  const maxCls = maxDLS.dls > 6 ? "sf-bad" : maxDLS.dls > 3 ? "sf-warn" : "sf-ok";
+  document.getElementById("svSummary").innerHTML =
+    `<div class="kv"><span>Final MD</span><span class="mono">${Math.round(last.md).toLocaleString()} m</span></div>` +
+    `<div class="kv"><span>Final TVD</span><span class="mono">${last.tvd.toFixed(1)} m</span></div>` +
+    `<div class="kv"><span>Closure distance</span><span class="mono">${last.hd.toFixed(1)} m</span></div>` +
+    `<div class="kv"><span>Closure direction</span><span class="mono">${bearing.toFixed(1)}°</span></div>` +
+    `<div class="kv"><span>Max DLS</span><span class="mono ${maxCls}">${maxDLS.dls.toFixed(2)} °/30m @ ${Math.round(maxDLS.md).toLocaleString()} m</span></div>` +
+    `<div class="kv"><span>VS azimuth used</span><span class="mono">${(well.survey.vsAzi != null ? well.survey.vsAzi : last.azi).toFixed(1)}°</span></div>`;
+  drawCompassRose(); drawSurveyChart();
+}
+function drawCompassRose(){
+  const cv = document.getElementById("compassCanvas"); if (!cv) return;
+  const ctx = cv.getContext("2d"), W = cv.width, H = cv.height;
+  ctx.clearRect(0,0,W,H);
+  const cx = W/2, cy = H/2;
+  const rows = computeSurvey();
+  const maxHD = Math.max(10, ...rows.map(r=>r.hd));
+  const R = Math.min(W,H)/2 - 46;
+  const scale = R/maxHD;
+  ctx.strokeStyle = "#c9c4b6"; ctx.fillStyle = "#6b6659"; ctx.font = "9px Consolas"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  for (let i=1; i<=4; i++){
+    const r = R*i/4;
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,2*Math.PI); ctx.stroke();
+    ctx.fillText(Math.round(maxHD*i/4) + " m", cx+4, cy-r-4);
+  }
+  ctx.strokeStyle = "#8b8471";
+  for (let deg=0; deg<360; deg+=30){
+    const rad = deg*Math.PI/180;
+    ctx.beginPath();
+    ctx.moveTo(cx+Math.sin(rad)*(R-6), cy-Math.cos(rad)*(R-6));
+    ctx.lineTo(cx+Math.sin(rad)*R, cy-Math.cos(rad)*R);
+    ctx.stroke();
+  }
+  ctx.font = "bold 12px Segoe UI"; ctx.fillStyle = "#0a246a";
+  [[0,"N"],[90,"E"],[180,"S"],[270,"W"]].forEach(([deg,label])=>{
+    const rad = deg*Math.PI/180;
+    ctx.fillText(label, cx+Math.sin(rad)*(R+16), cy-Math.cos(rad)*(R+16));
+  });
+  ctx.strokeStyle = "#8b7355"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cx-6,cy); ctx.lineTo(cx+6,cy); ctx.moveTo(cx,cy-6); ctx.lineTo(cx,cy+6); ctx.stroke();
+  ctx.beginPath();
+  rows.forEach((r,i)=>{
+    const x = cx + r.ew*scale, y = cy - r.ns*scale;
+    if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  });
+  ctx.strokeStyle = "#0b3d91"; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = "#0f7b3a"; ctx.beginPath(); ctx.arc(cx,cy,4,0,2*Math.PI); ctx.fill();
+  const last = rows[rows.length-1];
+  const bx = cx + last.ew*scale, by = cy - last.ns*scale;
+  ctx.fillStyle = "#b91c1c"; ctx.beginPath(); ctx.arc(bx,by,5,0,2*Math.PI); ctx.fill();
+  const bearing = ((Math.atan2(last.ew,last.ns)*180/Math.PI)+360)%360;
+  ctx.fillStyle = "#1b1b1b"; ctx.font = "10px Consolas"; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+  ctx.fillText(`Closure: ${Math.round(last.hd)} m @ ${bearing.toFixed(1)}°`, 8, H-10);
+}
+function drawSurveyChart(){
+  const rows = computeSurvey();
+  mkChart("surveyChart", {type:"line", data:{datasets:[
+    {label:"Wellpath (TVD vs VS)", data: rows.map(r=>({x:r.vs, y:r.tvd})), borderColor:"#0b3d91", borderWidth:2}
+  ]}, options: depthOpts("Vertical section (m)")});
+}
+
+/* ---------- Strings / explorer / schematic ---------- */
+function seedDefaultStrings(){
+  well.strings = [
+    {name:"Conductor", role:"Conductor",    od:"20",     top:0, shoe:115,  toc:0,    mw:1.07, nextTD:870,  sections:[{to:115, od:"20", hole:26, wt:94, grade:"K-55"}]},
+    {name:"Surface", role:"Surface",      od:"13.375", top:0, shoe:870,  toc:0,    mw:1.15, nextTD:2100, sections:[{to:870, od:"13.375", hole:17.5, wt:68, grade:"L-80"}]},
+    {name:"Intermediate", role:"Intermediate", od:"9.625",  top:0, shoe:2100, toc:1160, mw:1.34, nextTD:3800, sections:[{to:2100, od:"9.625", hole:12.25, wt:47, grade:"L-80"}]},
+    {name:"Production", role:"Production",   od:"7",      top:0, shoe:3800, toc:1980, mw:1.61, nextTD:3800, sections:[{to:3800, od:"7", hole:8.5, wt:29, grade:"P-110"}]}
+  ];
+}
+/* One place decides how a string is summarised, so the tree, the design-string list and
+   the schematic can never disagree about what pipe a string actually contains. */
+function stringTag(st){
+  normalizeString(st);
+  const secs = st.sections;
+  const mixedOD = secs.some(s=> s.od !== secs[0].od);
+  if (!mixedOD) return fmtOD(secs[0].od) + " " + secs.map(s=> s.wt + "# " + s.grade).join(" / ");
+  return secs.map(s=> fmtOD(s.od) + " " + s.wt + "# " + s.grade).join(" / ");
+}
+
+function refreshTree(){
+  const t = document.getElementById("treeArea");
+  let h = `<div class="tree-item">🛢 <span><b>${well.name}</b></span></div>`;
+  const sel = +document.getElementById("scString").value || 0;
+  well.strings.forEach((s,i)=>{
+    normalizeString(s);
+    // st.wt / st.grade are legacy fields holding only the SHOE joint — showing them here
+    // hid the taper, so every grade combination looked identical in the tree.
+    h += `<div class="tree-item ${i===sel?"selected":""}" style="padding-left:20px" onclick="selString(${i})">📄 <span>${roleLabel(s)} — ${stringTag(s)} @ ${s.shoe.toLocaleString()} m</span></div>`;
+  });
+  t.innerHTML = h;
+  const TD = well.strings.length ? Math.max(...well.strings.map(s=>s.shoe)) : 0;
+  document.getElementById("wellSummary").innerHTML =
+    `TD: <span class="mono">${TD.toLocaleString()} m TVD</span><br>Strings: <span class="mono">${well.strings.length}</span><br>` +
+    `Pore @ TD: <span class="mono">${pore(TD).toFixed(2)} sg</span> · Frac @ TD: <span class="mono">${frac(TD).toFixed(2)} sg</span><br>` +
+    `Service: <span class="mono">${document.getElementById("sourService").checked?"Sour · "+serviceTemp()+" °C":"Sweet"}</span>`;
+}
+function selString(i){ document.getElementById("scString").value = i; onStringChange(); switchTab("stresscheck"); }
+
+function populateStringSelect(){
+  const s = document.getElementById("scString");
+  const keep = Math.min(+s.value || 0, well.strings.length - 1);
+  s.innerHTML = well.strings.map((x,i)=>
+    `<option value="${i}">${roleLabel(x)} — ${stringTag(x)} @ ${x.shoe.toLocaleString()} m</option>`
+  ).join("");
+  s.value = keep;
+  renderPipePickers();
+}
+function renderPipePickers(){
+  const st = curString(); if (!st) return;
+  normalizeString(st);
+  writeLCToUI(st);
+  const odSel = document.getElementById("scOD");
+  odSel.innerHTML = odOptions(st.od);
+  const topEl = document.getElementById("scTop"); if (topEl) topEl.value = st.top || 0;
+  renderSections();
+}
+function gradeOptions(sel){
+  const sour = document.getElementById("sourService").checked;
+  return GRADE_ORDER.filter(gn=> !sour || naceOK(gn) || gn === sel)
+    .map(gn=>`<option value="${gn}" ${gn===sel?"selected":""}>${gn}${sour && !naceOK(gn) ? " ⚠" : ""}</option>`).join("");
+}
+function renderSections(){
+  const st = curString(); if (!st) return;
+  const b = document.getElementById("secBody"); if (!b) return;
+  const sour = document.getElementById("sourService").checked;
+  b.innerHTML = "";
+  sectionSpans(st).forEach((s,i)=>{
+    const last = i === st.sections.length - 1;
+    const wtOpts = PIPES[s.od].map(([w])=>`<option value="${w}" ${Math.abs(w-s.wt)<0.01?"selected":""}>${w}</option>`).join("");
+    const bad = sour && !naceOK(s.grade);
+    const p = pipeOf(s.od, s.wt);
+    b.insertAdjacentHTML("beforeend",
+      `<tr><td class="mono">${Math.round(s.from).toLocaleString()}</td>
+       <td>${last ? `<span class="mono" title="bottom section always reaches the shoe">${Math.round(s.to).toLocaleString()}</span>`
+                  : `<input class="inp" style="width:58px" type="text" inputmode="decimal" value="${fmtDepth(s.to)}" title="depth in metres — decimals and commas allowed (e.g. 1,058.47)" onchange="secEdit(${i},'to',this.value)">`}</td>
+       <td><select class="inp" style="width:64px" title="A tapered string may change OD at a crossover" onchange="secEdit(${i},'od',this.value)">${odOptions(s.od)}</select></td>
+       <td><select class="inp" style="width:58px" onchange="secEdit(${i},'wt',this.value)">${wtOpts}</select></td>
+       <td><select class="inp" style="width:64px" title="Bit size for this section · annular clearance ${((s.hole-parseFloat(s.od))/2).toFixed(3)} in per side" onchange="secEdit(${i},'hole',this.value)">${holeOptions(s.od, s.hole)}</select></td>
+       <td><select class="inp" style="width:66px${bad?';color:var(--bad)':''}" onchange="secEdit(${i},'grade',this.value)">${gradeOptions(s.grade)}</select></td>
+       <td><button class="btn small" onclick="secDel(${i})" ${st.sections.length<=1?"disabled":""}>✕</button></td></tr>`);
+  });
+}
+function secEdit(i, key, val){
+  const st = curString();
+  if (key === "wt") st.sections[i].wt = +val;
+  else if (key === "grade") st.sections[i].grade = val;
+  else if (key === "hole") st.sections[i].hole = +val;
+  else if (key === "od"){
+    st.sections[i].od = val;
+    st.sections[i].hole = defaultHole(val);          // a 9-5/8" string cannot stay in a 26" hole
+    // the old weight may not exist in the new OD — keep the closest available
+    const rows = PIPES[val];
+    if (!rows.some(r=> Math.abs(r[0]-st.sections[i].wt) < 0.01)){
+      const near = rows.reduce((a,b)=> Math.abs(b[0]-st.sections[i].wt) < Math.abs(a[0]-st.sections[i].wt) ? b : a);
+      st.sections[i].wt = near[0];
+    }
+  }
+  else if (key === "to"){
+    const v = parseNum(val);                         // accepts 1,058.47 and decimals
+    if (!Number.isFinite(v)) { renderSections(); return; }
+    st.sections[i].to = Math.min(Math.max(v, (st.top||0) + 1), st.shoe - 1);
+  }
+  normalizeString(st);
+  populateStringSelect(); recalcAll(false);
+}
+function addSection(){
+  const st = curString();
+  const spans = sectionSpans(st);
+  // split the longest span in half
+  let bi = 0, big = 0;
+  spans.forEach((s,i)=>{ if (s.to - s.from > big){ big = s.to - s.from; bi = i; } });
+  if (big < 20){ setStatus("Section too short to split further."); return; }
+  const mid = Math.round((spans[bi].from + spans[bi].to)/2);
+  st.sections.splice(bi, 0, {to: mid, od: st.sections[bi].od, hole: st.sections[bi].hole, wt: st.sections[bi].wt, grade: st.sections[bi].grade});
+  normalizeString(st);
+  populateStringSelect(); recalcAll(false);
+  setStatus("Section boundary added at " + mid.toLocaleString() + " m — set its weight and grade.");
+}
+function secDel(i){
+  const st = curString();
+  if (st.sections.length <= 1) return;
+  st.sections.splice(i,1);
+  normalizeString(st);
+  populateStringSelect(); recalcAll(false);
+}
+function onStringChange(){
+  readLCFromUI();                       // flush anything typed but not blurred to its owner
+  const st = curString();
+  if (st){ normalizeString(st); writeLCToUI(st); }
+  renderPipePickers(); runStressCheck(); refreshTree();
+}
+function onODChange(){
+  const st = curString();
+  const od = document.getElementById("scOD").value;
+  const wts = PIPES[od];
+  // string-level picker retags EVERY section, keeping the nearest available weight
+  st.sections.forEach(s=>{
+    s.od = od; s.hole = defaultHole(od);
+    if (!wts.some(r=>Math.abs(r[0]-s.wt)<0.01)){
+      const near = wts.reduce((a,b)=> Math.abs(b[0]-s.wt) < Math.abs(a[0]-s.wt) ? b : a);
+      s.wt = near[0];
+    }
+  });
+  normalizeString(st);
+  populateStringSelect(); recalcAll(false);
+}
+function onSourChange(){
+  if (document.getElementById("sourService").checked){
+    let swapped = 0;
+    well.strings.forEach(st=>{
+      normalizeString(st);
+      st.sections.forEach(s=>{ if (!naceOK(s.grade)){ s.grade = "L-80"; swapped++; } });
+      normalizeString(st);
+    });
+    if (swapped) setStatus(swapped + " section(s) used grades not acceptable at " + serviceTemp() + " °C per ISO 15156-2 Table A.3 — switched to L-80.");
+  }
+  populateStringSelect(); recalcAll(false);
+}
+function onTopChange(){
+  const st = curString();
+  const v = Math.round(+document.getElementById("scTop").value);
+  st.top = Math.max(0, Math.min(Number.isFinite(v)?v:0, st.shoe - 10));
+  normalizeString(st);
+  recalcAll(false);
+}
+
+function renderStrTable(){
+  const b = document.getElementById("strBody"); if (!b) return;
+  b.innerHTML = "";
+  const odOpts = odOptions;
+  well.strings.forEach((s,i)=>{
+    b.insertAdjacentHTML("beforeend",
+      `<tr><td>` +
+         `<select class="inp" style="width:104px" title="Change this string's role — e.g. make a Surface into an Intermediate" onchange="strEditRole(${i},this.value)">` +
+           ROLES.map(r=>`<option value="${r}" ${s.role===r?"selected":""}>${r}</option>`).join("") +
+         `</select>` +
+         (s.role==="Custom" ? `<input class="inp" style="width:104px;margin-top:2px" placeholder="name" value="${s.customName||""}" onchange="strEdit(${i},'customName',this.value)">` : "") +
+         (s.displayName && s.displayName!==s.role && s.role!=="Custom" ? `<div class="mono" style="font-size:10px;color:#555">${s.displayName}</div>` : "") +
+         `</td>
+       <td>${[...new Set(s.sections.map(x=>x.od))].length>1
+              ? `<span class="mono" title="Tapered across a crossover — edit per section in StressCheck">${s.sections.map(x=>fmtOD(x.od)).join(" / ")}</span>`
+              : `<select class="inp" style="width:74px" onchange="strEditOD(${i},this.value)">${odOpts(s.od)}</select>`}</td>
+       <td>${s.sections.map(x=>x.wt).join(" / ")}</td>
+       <td>${s.sections.map(x=>x.grade).join(" / ")}</td>
+       <td><input class="inp" style="width:68px" type="text" inputmode="decimal" value="${fmtDepth(s.shoe)}" title="shoe depth in metres — decimals allowed" onchange="strEdit(${i},'shoe',this.value)"></td>
+       <td><input class="inp" style="width:56px" type="number" value="${s.toc}" onchange="strEdit(${i},'toc',this.value)"></td>
+       <td><input class="inp" style="width:50px" type="number" step="0.01" value="${s.mw}" onchange="strEdit(${i},'mw',this.value)"></td>
+       <td><button class="btn small" onclick="removeString(${i})" title="Delete this string" ${well.strings.length<=1?"disabled":""}>✕</button></td></tr>`);
+  });
+}
+function strEdit(i,k,v){
+  const st = well.strings[i];
+  if (k==="name" || k==="customName"){ st[k] = v; if (k==="customName") st.name = v; }
+  else { let n = parseNum(v); if (Number.isFinite(n)){
+          if (k === "mw"){ const c = toSG(n); if (c !== n){ n = c; setStatus("Mud weight converted from ppg → " + n + " sg"); } }
+          st[k] = n; } }   // shoe/toc/mw accept commas+decimals
+  if (k === "shoe") normalizeString(st);          // bottom section follows the shoe
+  renumberRoles(); populateStringSelect(); recalcAll();
+}
+/* Change a string's role. This is the feature that turns e.g. a Surface into an
+   Intermediate, producing two intermediates that auto-number themselves. */
+function strEditRole(i, role){
+  const st = well.strings[i];
+  st.role = role;
+  if (role !== "Custom") st.customName = "";
+  renumberRoles();
+  st.name = roleLabel(st);                          // legacy .name stays consistent
+  populateStringSelect(); recalcAll(false);
+  setStatus(`String ${i+1} is now "${roleLabel(st)}".`);
+}
+function strEditOD(i,od){
+  const st = well.strings[i];
+  const wts = PIPES[od];
+  (st.sections||[]).forEach(s=>{
+    s.od = od; s.hole = defaultHole(od);
+    if (!wts.some(r=>Math.abs(r[0]-s.wt)<0.01)){
+      const near = wts.reduce((a,b)=> Math.abs(b[0]-s.wt) < Math.abs(a[0]-s.wt) ? b : a);
+      s.wt = near[0];
+    }
+  });
+  normalizeString(st);
+  populateStringSelect(); recalcAll(false);
+}
+function addString(){
+  // insert into the largest depth gap (incl. surface..first shoe)
+  const shoes = [0, ...well.strings.map(s=>s.shoe)].sort((a,b)=>a-b);
+  let bi=0,big=0;
+  for(let i=0;i<shoes.length-1;i++){ const gap=shoes[i+1]-shoes[i]; if(gap>big){big=gap;bi=i;} }
+  const newShoe = Math.round((shoes[bi]+shoes[bi+1])/2);
+  const mwNew = +(maxPore(0,newShoe)+0.3).toFixed(2);
+  const st = {role:"Intermediate", name:"Intermediate", od:"9.625", top:0, wt:47, grade:defaultGrade(),
+              sections:[{to:newShoe, od:"9.625", hole:12.25, wt:47, grade:defaultGrade()}],
+              shoe:newShoe, toc:Math.round(newShoe*0.55), mw:mwNew, nextTD:newShoe};
+  // insert in depth order so the schematic and role numbering read top-down
+  well.strings.push(st);
+  well.strings.sort((a,b)=>a.shoe-b.shoe);
+  renumberRoles();
+  populateStringSelect(); recalcAll(false);
+  setStatus("Added an Intermediate at "+newShoe.toLocaleString()+" m — change its role in the String column if needed.");
+}
+function removeString(i){
+  if (well.strings.length <= 1) return;
+  well.strings.splice(i,1);
+  document.getElementById("scString").value = 0;
+  populateStringSelect(); recalcAll(false);
+}
+
+function drawSchematic(){
+  const cv = document.getElementById("schemCanvas"); if (!cv) return;
+  const ctx = cv.getContext("2d"); ctx.clearRect(0,0,cv.width,cv.height);
+  if (!well.strings.length) return;
+  const TD = Math.max(...well.strings.map(s=>s.shoe));
+  const y0=40, y1=cv.height-30, cx=cv.width/2;
+  const Y = d=> y0 + (y1-y0)*d/TD;
+  ctx.font = "10px Consolas"; ctx.fillStyle="#333";
+  ctx.fillText("GL 0 m", cx+150, y0-6);
+  ctx.strokeStyle="#8b7355"; ctx.beginPath(); ctx.moveTo(20,y0); ctx.lineTo(cv.width-20,y0); ctx.stroke();
+  const byDepth = [...well.strings].sort((a,b)=> a.shoe - b.shoe);
+  const n = byDepth.length;
+  byDepth.forEach((s,i)=>{
+    normalizeString(s);
+    const half = 20 + (n-1-i)*Math.min(24, 150/Math.max(1,n-1));
+    const yTop = Y(s.top || 0), yS = Y(s.shoe), yT = Y(Math.min(s.toc, s.shoe));
+    // cement
+    ctx.fillStyle = "rgba(120,120,120,.35)";
+    ctx.fillRect(cx-half-7, yT, 7, yS-yT); ctx.fillRect(cx+half, yT, 7, yS-yT);
+    // casing, one stroke per section (heavier wall drawn thicker)
+    const spans = sectionSpans(s);
+    const wts = spans.map(x=>x.wt), wMin = Math.min(...wts), wMax = Math.max(...wts);
+    const odMax = parseFloat(maxOD(s));
+    spans.forEach(x=>{
+      const t = wMax > wMin ? (x.wt - wMin)/(wMax - wMin) : 0;
+      const hw = half * (parseFloat(x.od) / odMax);      // narrower OD draws narrower
+      ctx.lineWidth = 2 + 2*t;
+      ctx.strokeStyle = spans.length > 1 ? `hsl(${215 - 40*t},70%,${42 - 10*t}%)` : "#0b3d91";
+      const ya = Y(x.from), yb = Y(x.to);
+      ctx.beginPath(); ctx.moveTo(cx-hw, ya); ctx.lineTo(cx-hw, yb);
+                       ctx.moveTo(cx+hw, ya); ctx.lineTo(cx+hw, yb); ctx.stroke();
+      if (spans.length > 1 && x.to < s.shoe){   // crossover / taper boundary
+        ctx.strokeStyle = "#6b6659"; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(cx-hw-5, yb); ctx.lineTo(cx-hw+5, yb);
+                         ctx.moveTo(cx+hw-5, yb); ctx.lineTo(cx+hw+5, yb); ctx.stroke();
+        ctx.fillStyle = "#6b6659"; ctx.font = "8px Consolas";
+        ctx.fillText(`${x.wt}#`, cx+hw+10, yb-2);
+        ctx.font = "10px Consolas";
+      }
+    });
+    // hanger tick for liners / datum offset
+    if ((s.top || 0) > 0){
+      ctx.strokeStyle = "#8b5a2b"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(cx-half-6, yTop); ctx.lineTo(cx-half+6, yTop);
+                       ctx.moveTo(cx+half-6, yTop); ctx.lineTo(cx+half+6, yTop); ctx.stroke();
+    }
+    // shoe
+    ctx.fillStyle = "#0b3d91";
+    ctx.beginPath(); ctx.moveTo(cx-half, yS); ctx.lineTo(cx-half-8, yS); ctx.lineTo(cx-half, yS-9); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(cx+half, yS); ctx.lineTo(cx+half+8, yS); ctx.lineTo(cx+half, yS-9); ctx.fill();
+    ctx.fillStyle = "#1b1b1b";
+    ctx.fillText(`${roleLabel(s)} ${stringTag(s)} @ ${s.shoe.toLocaleString()} m`, cx+half+12, yS+3);
+    ctx.fillStyle = "#6b6659";
+    if (s.toc < s.shoe - 20) ctx.fillText(`TOC ${s.toc.toLocaleString()}`, cx-half-70, yT+3);
+  });
+  ctx.fillStyle="#333"; ctx.fillText(`TD ${TD.toLocaleString()} m`, cx-24, y1+16);
+}
+
+/* ---------- Report ---------- */
+function buildReport(){
+  if (!lastSC) return;
+  const rp = document.getElementById("rpWell"); if (!rp) return;
+  rp.textContent = well.name;
+  const df = lastSC.df;
+  let h = `<p><b>Standards basis:</b> API TR 5C3 (collapse, four regimes with combined-loading yield reduction), Barlow internal yield at 87.5% wall, Lamé/von Mises triaxial with design envelope, API 5CT grades${document.getElementById("sourService").checked?", NACE MR0175/ISO 15156-2 Table A.3 sour-service grade screen at "+serviceTemp()+" °C":""}. Depths in meters; pressures psi; densities sg. Design factors: burst ${df.burst}, collapse ${df.collapse}, tension ${df.tension}, triaxial ${df.vme}.</p>`;
+  if (well.survey && well.survey.stations && well.survey.stations.some(s=> s.inc)){
+    const svRows = computeSurvey(), svLast = svRows[svRows.length-1];
+    const svBearing = ((Math.atan2(svLast.ew, svLast.ns)*180/Math.PI)+360)%360;
+    const svMaxDLS = svRows.reduce((m,r)=> r.dls > m.dls ? r : m, {dls:-1, md:0});
+    h += `<h3 style="font-size:12px">0 — Directional survey (minimum curvature)</h3><p>Final MD ${Math.round(svLast.md).toLocaleString()} m, final TVD ${svLast.tvd.toFixed(1)} m, closure ${svLast.hd.toFixed(1)} m @ ${svBearing.toFixed(1)}°, max DLS ${svMaxDLS.dls.toFixed(2)}°/30m at ${Math.round(svMaxDLS.md).toLocaleString()} m MD.</p>`;
+  }
+  h += `<h3 style="font-size:12px">1 — Casing program</h3><table class="grid"><thead><tr><th>String</th><th>Hole</th><th>OD × Wt × Grade</th><th>Interval m</th><th>TOC m</th><th>MW sg</th></tr></thead><tbody>`;
+  well.strings.forEach(s=>{
+    normalizeString(s);
+    const spans = sectionSpans(s);
+    spans.forEach((x,j)=>{
+      h += `<tr>${j===0?`<td class="l" rowspan="${spans.length}">${roleLabel(s)}</td>`:""}<td>${fmtHole(x.hole)}</td>` +
+           `<td>${fmtOD(x.od)} × ${x.wt}# × ${x.grade}</td><td>${Math.round(x.from).toLocaleString()}–${Math.round(x.to).toLocaleString()}</td>` +
+           `${j===0?`<td rowspan="${spans.length}">${s.toc.toLocaleString()}</td><td rowspan="${spans.length}">${s.mw}</td>`:""}</tr>`;
+    });
+  });
+  h += `</tbody></table>`;
+  const tot = well.strings.reduce((a,x)=> a + stringCost(x), 0);
+  h += `<p>Estimated design cost (steel only, $${(+document.getElementById("scSteelCost").value||1).toFixed(2)}/lb base × grade factor): <b>$${Math.round(tot).toLocaleString()}</b>.` +
+       ` Collapse safety factors computed by the <b>${collapseMethod()==="vector"?"vector (proportional load scaling)":"rating ÷ load"}</b> method. Safety-factor display: <b>${sfIsNorm()?"Normalized (SF ÷ DF, pass ≥ 1.00 — StressCheck Norm convention)":"Absolute (rating ÷ load, pass ≥ DF)"}</b>.</p>`;
+  h += `<h3 style="font-size:12px">2 — Governing safety factors, ${roleLabel(lastSC.st)} string</h3>`;
+  h += document.getElementById("lcTable").outerHTML.replace('id="lcTable"','');
+  if (well.seats){
+    const p = well.seats.params;
+    h += `<h3 style="font-size:12px">3 — Seat selection basis</h3><p>Method: ${document.getElementById("csMethod").value}. Trip margin ${p.trip} sg, kick margin ${p.km} sg, kick intensity ${p.ki} sg, differential sticking limit ${p.diffLim.toLocaleString()} psi (worst computed ${Math.round(well.seats.worstDS).toLocaleString()} psi at ${Math.round(well.seats.worstZ).toLocaleString()} m).${p.nStr?" String count fixed at "+p.nStr+".":""}</p>`;
+  }
+  // ---- report byline (prints with the document) ----
+  const _byline = `<p style="margin-top:10px;padding-top:6px;border-top:1px solid #ccc;font-size:10px;color:#555">
+      Prepared with <b>BASIRA EDM</b> — CasingSeat &amp; StressCheck engine · <b>by Abdulwadod Alkaissy</b></p>`;
+
+  // ---- 4 — Figures: snapshot every StressCheck / CasingSeat plot into the report ----
+  h += `<h3 style="font-size:12px" class="fig-h">4 — Design plots</h3>
+        <div id="rpFigs" class="fig-grid"></div>` + _byline;
+  document.getElementById("reportArea").innerHTML = h;
+  renderReportFigures();
+}
+
+/* Snapshot the live canvases into <img> tags so they print with the report.
+   Charts are redrawn on every engine run, so we re-capture each time the report
+   is built and again right before printing (charts animate in asynchronously). */
+const REPORT_FIGS = [
+  {id:"compassCanvas", cap:"Compass — plan-view directional survey (N/E departure)"},
+  {id:"surveyChart",   cap:"Directional profile — TVD vs vertical section"},
+  {id:"schemCanvas",   cap:"Well schematic — casing scheme and cement tops"},
+  {id:"burstChart",    cap:"Burst — design load vs rating along the string"},
+  {id:"collapseChart", cap:"Collapse — design load vs axially-corrected rating"},
+  {id:"axialChart",    cap:"Axial — effective tension vs pipe-body yield"},
+  {id:"vmeChart",      cap:"Triaxial — von Mises design envelope"},
+  {id:"mudChart",      cap:"Casing seats — pore / fracture gradients and mud window"},
+  {id:"fmChart",       cap:"Formation data — pore and fracture pressure profiles"}
+];
+function renderReportFigures(){
+  const box = document.getElementById("rpFigs"); if (!box) return;
+  let out = "";
+  REPORT_FIGS.forEach((f, i)=>{
+    const cv = document.getElementById(f.id);
+    if (!cv || !cv.width || !cv.height) return;
+    let url = "";
+    try { url = cv.toDataURL("image/png"); } catch(e){ url = ""; }
+    if (!url || url.length < 2000){                     // still blank -> show why, don't drop silently
+      out += `<figure class="fig"><div style="padding:18px;text-align:center;color:#a00;font-size:9px;border:1px dashed #caa">
+                Plot not captured — open the ${f.id === "mudChart" ? "CasingSeat" : f.id === "fmChart" ? "Formation Data" : f.id === "schemCanvas" ? "Well Schematic" : (f.id === "compassCanvas" || f.id === "surveyChart") ? "Compass" : "StressCheck"} tab once, then print again.</div>
+              <figcaption>Figure ${i+1} — ${f.cap}</figcaption></figure>`;
+      return;
+    }
+    const fname = `${(well.name||"well").replace(/[^\w\-]+/g,"_")}_Fig${i+1}_${f.id}.png`;
+    out += `<figure class="fig"><img src="${url}" alt="${f.cap}">
+              <figcaption>Figure ${i+1} — ${f.cap}
+                <button class="btn no-print fig-dl" title="Save this plot as a PNG image"
+                        onclick="downloadFigure('${f.id}', '${fname}')">⬇ Save PNG</button>
+              </figcaption></figure>`;
+  });
+  box.innerHTML = out || `<p style="color:#888;font-size:10px">Run the analysis to populate the design plots.</p>`;
+}
+/* Save one plot as a PNG file. Re-reads the live canvas so the image is current. */
+function downloadFigure(canvasId, filename){
+  const cv = document.getElementById(canvasId);
+  if (!cv){ setStatus("Plot not available — run the analysis first."); return; }
+  try{
+    cv.toBlob(blob=>{
+      if (!blob){ setStatus("Could not export this plot."); return; }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=> URL.revokeObjectURL(url), 1000);
+      setStatus("Saved " + filename);
+    }, "image/png");
+  }catch(e){ setStatus("Could not export this plot: " + e.message); }
+}
+/* Save every plot in one go. */
+function downloadAllFigures(){
+  setStatus("Preparing plots…");
+  withAllViewsRendered(()=> _downloadAllNow());
+}
+function _downloadAllNow(){
+  let n = 0;
+  REPORT_FIGS.forEach((f,i)=>{
+    const cv = document.getElementById(f.id); if (!cv) return;
+    const fname = `${(well.name||"well").replace(/[^\w\-]+/g,"_")}_Fig${i+1}_${f.id}.png`;
+    setTimeout(()=> downloadFigure(f.id, fname), n*350);   // stagger so the browser allows all
+    n++;
+  });
+  setStatus("Saving " + n + " plots…");
+}
+
+/* Charts live inside tab panes that are display:none when inactive. A canvas in a
+   display:none subtree has no layout box, so Chart.js keeps it at zero/stale size and
+   toDataURL() returns a blank or half-drawn image. Before capturing we therefore make
+   every pane renderable (off-screen, not display:none), force each chart to resize and
+   redraw at full size, wait for the browser to paint, then snapshot. */
+function withAllViewsRendered(work){
+  const ids = ["compass","casingseat","stresscheck","schematic","formation","report"];
+  const saved = [];
+  ids.forEach(n=>{
+    const el = document.getElementById("view-"+n); if (!el) return;
+    saved.push({el, hadHide: el.classList.contains("hide"), cssText: el.style.cssText});
+    if (el.classList.contains("hide")){
+      el.classList.remove("hide");
+      // rendered but invisible and out of flow, at a deterministic size
+      el.style.cssText += ";position:absolute;left:-10000px;top:0;width:1200px;height:820px;visibility:hidden;";
+    }
+  });
+  // redraw everything now that the canvases have a real layout box
+  try { drawCompassRose(); drawSurveyChart(); drawMudChart(); drawSCCharts(); drawSchematic(); drawFmChart(); } catch(e){}
+  if (window.Chart && Chart.getChart){
+    document.querySelectorAll("canvas").forEach(cv=>{
+      const ch = Chart.getChart(cv);
+      if (ch){ try { ch.resize(); ch.update("none"); } catch(e){} }
+    });
+  }
+  const restore = ()=> saved.forEach(o=>{
+    o.el.style.cssText = o.cssText;
+    if (o.hadHide) o.el.classList.add("hide");
+  });
+  // two frames + a tick so Chart.js finishes laying out and painting
+  requestAnimationFrame(()=> requestAnimationFrame(()=> setTimeout(()=>{
+    try { work(); } finally { restore(); }
+  }, 120)));
+}
+
+/* Re-capture immediately before the print dialog opens. */
+function printReport(){
+  setStatus("Preparing plots for print…");
+  withAllViewsRendered(()=>{
+    renderReportFigures();
+    setStatus("Ready to print.");
+    setTimeout(()=> window.print(), 200);
+  });
+}
+
+/* ---------- Project I/O ---------- */
+function saveProject(){
+  const blob = new Blob([JSON.stringify(well, null, 2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = well.name.replace(/\s+/g,"_") + "_EDM.json";
+  a.click(); URL.revokeObjectURL(a.href);
+  setStatus("Project saved to JSON.");
+}
+function loadProject(ev){
+  const f = ev.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = ()=>{ try{
+      const w = JSON.parse(r.result);
+      if (!w.formations || !w.strings) throw new Error("bad file");
+      if (w.units !== "m"){ // legacy ft project → convert depths
+        w.formations.forEach(row=> row[0] = Math.round(row[0]/FT));
+        (w.strings||[]).forEach(s=>{ s.shoe=Math.round(s.shoe/FT); s.toc=Math.round(s.toc/FT); s.nextTD=Math.round((s.nextTD||s.shoe)/FT); });
+        w.units = "m";
+      }
+      w.seats = null;
+      // pre-Compass projects have no directional survey — default to a straight vertical hole
+      if (!w.survey || !Array.isArray(w.survey.stations) || w.survey.stations.length < 2){
+        const wTD = (w.strings||[]).length ? Math.max(...w.strings.map(s=>s.shoe)) : 3800;
+        w.survey = {stations:[{md:0,inc:0,azi:0},{md:wTD,inc:0,azi:0}], vsAzi:null};
+      }
+      // legacy ppg project → sg (detect via formation EMW magnitudes)
+      if ((w.formations||[]).some(r=> r[1] > 5)){
+        w.formations.forEach(r=>{ r[1]=+(r[1]/8.345).toFixed(3); r[2]=+(r[2]/8.345).toFixed(3); });
+        (w.strings||[]).forEach(st=>{
+          if (st.mw > 5) st.mw = +(st.mw/8.345).toFixed(2);
+          if (st.lc) for (const k of Object.keys(st.lc))
+            if (LC_DENSITY_KEYS.has(k) && Number.isFinite(st.lc[k])) st.lc[k] = toSG(st.lc[k]);
+        });
+        setStatus("Legacy ppg project detected — all densities converted to sg.");
+      }
+      (w.strings||[]).forEach(normalizeString);   // migrate legacy single-pipe projects
+      well = w; initAll(); setStatus("Project loaded: " + well.name);
+    }catch(e){ setStatus("Could not read project file — expected BASIRA EDM JSON."); } };
+  r.readAsText(f);
+  ev.target.value = "";
+}
+function newProject(){
+  if (!confirm("Start a new project? Unsaved changes will be lost.")) return;
+  well.name = prompt("Well name:", "New Well-1") || "New Well-1";
+  seedDefaultStrings(); well.seats = null;
+  well.survey = {stations:[{md:0,inc:0,azi:0},{md:3800,inc:0,azi:0}], vsAzi:null};
+  initAll();
+}
+
+/* ---------- misc ---------- */
+function fmtOD(od){ const map={"20":"20\"","18.625":"18-5/8\"","16":"16\"","13.375":"13-3/8\"","11.75":"11-3/4\"","10.75":"10-3/4\"","9.625":"9-5/8\"","8.625":"8-5/8\"","7.625":"7-5/8\"","7":"7\"","6.625":"6-5/8\"","5.5":"5-1/2\"","5":"5\"","4.5":"4-1/2\""}; return map[od]||od+"\""; }
+function setStatus(t){ document.getElementById("statusText").textContent = t; }
+function switchTab(name){
+  ["compass","casingseat","stresscheck","schematic","formation","report"].forEach(n=>{
+    document.getElementById("view-"+n).classList.toggle("hide", n!==name);
+    document.getElementById("tab-"+n).classList.toggle("active", n===name);
+  });
+  requestAnimationFrame(()=>{
+    if (name==="compass") renderSurvey();
+    if (name==="casingseat") drawMudChart();
+    if (name==="stresscheck") drawSCCharts();
+    if (name==="schematic") drawSchematic();
+    if (name==="formation") drawFmChart();
+    if (name==="report") buildReport();
+  });
+}
+function openDF(){ document.getElementById("dfModal").classList.add("open"); }
+function closeDF(){ document.getElementById("dfModal").classList.remove("open"); }
+function openHelp(){ document.getElementById("helpModal").classList.add("open"); helpTab("work"); }
+function helpTab(name){
+  ["work","meth","cases","ref"].forEach(n=>{
+    const v = document.getElementById("hv-"+n), t = document.getElementById("htab-"+n);
+    if (v) v.classList.toggle("hide", n!==name);
+    if (t) t.classList.toggle("active", n===name);
+  });
+}
+function runAll(){ runCasingSeat(); runStressCheck(); setStatus("Full analysis complete."); }
+
+function initAll(){
+  document.getElementById("tbWellName").textContent = well.name;
+  if (!well.strings.length) seedDefaultStrings();
+  if (!well.survey || !Array.isArray(well.survey.stations) || well.survey.stations.length < 2){
+    const TD = well.strings.length ? Math.max(...well.strings.map(s=>s.shoe)) : 3800;
+    well.survey = {stations:[{md:0,inc:0,azi:0},{md:TD,inc:0,azi:0}], vsAzi:null};
+  }
+  syncChain();
+  populateStringSelect(); renderStrTable(); renderFm(); refreshTree(); renderSurvey();
+  drawMudChart(); runStressCheck(); drawSchematic();
+}
+["csMethod","csTD","csMinSurf","csTrip","csKickMargin","csKI","csDiffLimit","csGasGrad","csNstr"].forEach(id=>{
+  document.addEventListener("change", e=>{
+    if (e.target.id !== id) return;
+    if (id === "csTD" && well.strings.length){          // TD edited → deepest shoe follows, everywhere updates
+      well.strings[well.strings.length-1].shoe = +e.target.value;
+      populateStringSelect();
+      recalcAll();
+    } else if (well.seats) { runCasingSeat(); } else { drawMudChart(); }
+  });
+});
+window.addEventListener("load", ()=>{ initAll(); runCasingSeat(); });
+document.addEventListener("keydown", e=>{ if (e.key==="F5"){ e.preventDefault(); runAll(); }});
+
+</script>
+</body>
+</html>
