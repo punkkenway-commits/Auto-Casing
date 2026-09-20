@@ -172,9 +172,41 @@ table.grid tr:nth-child(even) td{background:#faf9f6}
       <!-- ============ COMPASS (directional survey) ============ -->
       <div id="view-compass" class="grow p1 flex gap1 hide" style="background:#d9d4c8;overflow:hidden;min-height:0">
         <div class="panel flex col scroll-col" style="width:340px;flex-shrink:0">
+          <div class="sec-h"><span>🎯 Target &amp; Well-Path Design</span></div>
+          <div class="p1">
+            <label class="fld" title="Landmark COMPASS-style profile: Hold = vertical, Slant = single build-and-hold (Type I / J), S-Shape = build-hold-drop (Type II)">Profile type</label>
+            <select id="planType" class="inp" onchange="planTypeChange()">
+              <option value="hold">Hold (vertical to TD)</option>
+              <option value="slant">Slant — Build &amp; Hold</option>
+              <option value="s">S-Shape — Build, Hold &amp; Drop</option>
+            </select>
+            <div class="hr"></div>
+            <div class="note" style="margin-bottom:3px"><b>Target</b> (offset from surface location)</div>
+            <div class="flex gap1">
+              <div class="grow"><label class="fld">Target TVD, m</label><input id="tgTVD" class="inp" type="number" step="10" onchange="tgEdit('tvd',this.value)"></div>
+              <div class="grow"><label class="fld" title="Acceptance radius — the well is considered to hit the target inside this circle">Radius, m</label><input id="tgR" class="inp" type="number" step="1" onchange="tgEdit('radius',this.value)"></div>
+            </div>
+            <div class="flex gap1">
+              <div class="grow"><label class="fld">Target N/S, m</label><input id="tgNS" class="inp" type="number" step="10" onchange="tgEdit('ns',this.value)"></div>
+              <div class="grow"><label class="fld">Target E/W, m</label><input id="tgEW" class="inp" type="number" step="10" onchange="tgEdit('ew',this.value)"></div>
+            </div>
+            <div class="hr"></div>
+            <div id="planParams">
+              <div class="flex gap1">
+                <div class="grow"><label class="fld">KOP depth, m</label><input id="plKOP" class="inp" type="number" step="10" onchange="planEdit('kop',this.value)"></div>
+                <div class="grow"><label class="fld" title="Build-up rate">BUR °/30m</label><input id="plBUR" class="inp" type="number" step="0.1" onchange="planEdit('bur',this.value)"></div>
+              </div>
+              <div class="flex gap1" id="plDropRow">
+                <div class="grow"><label class="fld" title="Drop-off rate">DOR °/30m</label><input id="plDOR" class="inp" type="number" step="0.1" onchange="planEdit('dor',this.value)"></div>
+                <div class="grow"><label class="fld">Final inc. after drop, °</label><input id="plIncF" class="inp" type="number" step="1" onchange="planEdit('incFinal',this.value)"></div>
+              </div>
+            </div>
+            <button class="btn primary" style="width:100%" onclick="designToTarget()" title="Solves the build (and drop) geometry needed to hit the target, then fills the station table below">🎯 Design Path to Target</button>
+            <div id="planMsg" class="note" style="margin-top:5px"></div>
+          </div>
           <div class="sec-h"><span>Directional Survey Stations</span>
             <button class="btn small" onclick="svAdd()" title="Add a station after the last one">+ Station</button></div>
-          <div class="p1" style="overflow:auto">
+          <div class="p1" style="overflow:auto;min-height:190px;flex-shrink:0">
             <table class="grid" id="svTable">
               <thead><tr>
                 <th>MD (m)</th><th>Inc °</th><th>Azi °</th><th>TVD (m)</th><th>N/S (m)</th><th>E/W (m)</th><th>VS (m)</th><th>DLS<br><span style="font-weight:400;font-size:9px">°/30m</span></th><th></th>
@@ -458,11 +490,17 @@ table.grid tr:nth-child(even) td{background:#faf9f6}
 
       <h4 style="font-size:11.5px;color:#6b3a12;margin:10px 0 3px">Step 0 — Compass (directional survey, optional)</h4>
       <ol class="note" style="margin:0 0 0 16px;padding:0">
-        <li>Open the <b>Compass</b> tab and enter directional survey stations (<b>MD</b>, <b>Inc</b>, <b>Azi</b>) —
-            row by row or pasted from Excel — or leave the default two-station vertical profile for a vertical well.</li>
-        <li>The engine solves TVD, N/S, E/W and dogleg severity (DLS) between stations by the
-            <b>minimum-curvature method</b>. The Compass Rose plots the plan-view path; the profile chart plots TVD vs
-            vertical section.</li>
+        <li>Open the <b>Compass</b> tab. To plan a path to a target (Landmark COMPASS-style), set the
+            <b>target</b> (TVD, N/S, E/W offset from the surface location, and acceptance radius), pick a
+            <b>Profile type</b> — <b>Hold</b> (vertical), <b>Slant</b> (single build-and-hold / Type I), or
+            <b>S-Shape</b> (build–hold–drop / Type II) — enter the <b>KOP</b> depth and build rate (and drop rate for
+            S-Shape), then press <b>Design Path to Target</b>. The engine solves the tangent inclination that hits the
+            target exactly and fills the station table for you.</li>
+        <li>Otherwise enter directional survey stations (<b>MD</b>, <b>Inc</b>, <b>Azi</b>) directly — row by row or
+            pasted from Excel — or leave the default two-station vertical profile for a vertical well.</li>
+        <li>Either way, the engine solves TVD, N/S, E/W and dogleg severity (DLS) between stations by the
+            <b>minimum-curvature method</b>. The Compass Rose plots the plan-view path and target circle; the profile
+            chart plots TVD vs vertical section with the target marked.</li>
         <li>Press <b>Apply Computed TVD to CasingSeat TD</b> to carry the survey's true vertical depth into the
             <b>Well TD</b> field used by CasingSeat and StressCheck below.</li>
       </ol>
@@ -689,6 +727,9 @@ table.grid tr:nth-child(even) td{background:#faf9f6}
         <tr><td class="l">MD, Inc, Azi</td><td class="l">Measured depth, inclination from vertical, azimuth from north (Compass tab)</td><td>m, °, °</td></tr>
         <tr><td class="l">DLS</td><td class="l">Dogleg severity — curvature between two survey stations</td><td>°/30 m</td></tr>
         <tr><td class="l">VS</td><td class="l">Vertical section — horizontal displacement projected onto a chosen azimuth</td><td>m</td></tr>
+        <tr><td class="l">KOP</td><td class="l">Kick-off point — depth where the well leaves vertical (Compass target design)</td><td>m</td></tr>
+        <tr><td class="l">BUR, DOR</td><td class="l">Build-up rate, drop-off rate — inclination change per 30 m of hole</td><td>°/30 m</td></tr>
+        <tr><td class="l">EOB, EOD</td><td class="l">End of build, end of drop — tangent points of the curved sections</td><td>m</td></tr>
       </tbody></table>
 
       <h3 style="margin:10px 0 6px 0;font-size:13px;color:#123f6b">Unit conventions</h3>
@@ -970,7 +1011,9 @@ let well = {
   seats: null,
   survey: {                          // directional survey — minimum curvature (MD/Inc/Azi in m/deg)
     stations: [{md:0, inc:0, azi:0}, {md:3800, inc:0, azi:0}],
-    vsAzi: null                      // vertical-section azimuth, deg; null = auto (final station's azimuth)
+    vsAzi: null,                     // vertical-section azimuth, deg; null = auto (final station's azimuth)
+    target: {tvd:3400, ns:400, ew:300, radius:15},   // target center + acceptance radius, m
+    plan: {type:"slant", kop:800, bur:3, dor:3, incFinal:0}  // Landmark-COMPASS-style profile: hold | slant | s
   }
 };
 
@@ -2437,8 +2480,141 @@ function svPasteApply(mode){
   document.getElementById("svPaste").value = "";
   renderSurvey();
 }
+/* Closest point on the computed trajectory (by linear TVD interpolation) to the planning target. */
+function targetCheck(rows){
+  const tgt = well.survey.target; if (!tgt) return null;
+  if (tgt.tvd <= rows[0].tvd) return {ns:rows[0].ns, ew:rows[0].ew, dist: Math.hypot(rows[0].ns-tgt.ns, rows[0].ew-tgt.ew)};
+  for (let i=1; i<rows.length; i++){
+    if (tgt.tvd <= rows[i].tvd){
+      const p = rows[i-1], c = rows[i], f = (tgt.tvd-p.tvd)/((c.tvd-p.tvd)||1);
+      const ns = p.ns + (c.ns-p.ns)*f, ew = p.ew + (c.ew-p.ew)*f;
+      return {ns, ew, dist: Math.hypot(ns-tgt.ns, ew-tgt.ew)};
+    }
+  }
+  const last = rows[rows.length-1];
+  return {ns:last.ns, ew:last.ew, dist: Math.hypot(last.ns-tgt.ns, last.ew-tgt.ew)};
+}
+function tgEdit(key, val){
+  const n = parseNum(val);
+  if (!well.survey.target) well.survey.target = {tvd:3400, ns:400, ew:300, radius:15};
+  if (Number.isFinite(n)) well.survey.target[key] = n;
+  renderSurvey();
+}
+function planEdit(key, val){
+  const n = parseNum(val);
+  if (!well.survey.plan) well.survey.plan = {type:"slant", kop:800, bur:3, dor:3, incFinal:0};
+  if (Number.isFinite(n)) well.survey.plan[key] = n;
+  renderSurvey();
+}
+function planTypeChange(){
+  if (!well.survey.plan) well.survey.plan = {type:"slant", kop:800, bur:3, dor:3, incFinal:0};
+  well.survey.plan.type = document.getElementById("planType").value;
+  renderSurvey();
+}
+/* Solve a Landmark-COMPASS-style well profile (Hold / Slant Build&Hold / S-Shape) that
+   hits the planning target, then write the result into the station table.
+   Build & drop sections use standard circular-arc (radius-of-curvature) geometry:
+   radius R = 5400/(π·rate) for a rate in °/30 m. The build-section TVD/HD gained
+   (R sinθ, R(1-cosθ)) plus a straight hold section must equal the target's TVD/HD —
+   a transcendental equation in the tangent angle θ, solved here by bisection. */
+function designToTarget(){
+  if (!well.survey.plan) well.survey.plan = {type:"slant", kop:800, bur:3, dor:3, incFinal:0};
+  if (!well.survey.target) well.survey.target = {tvd:3400, ns:400, ew:300, radius:15};
+  const plan = well.survey.plan, tgt = well.survey.target;
+  const msg = document.getElementById("planMsg");
+  const TD = Math.max(numOr("csTD", tgt.tvd), tgt.tvd);
+  const HDt = Math.hypot(tgt.ns, tgt.ew);
+  const bearing = HDt > 1e-6 ? (((Math.atan2(tgt.ew, tgt.ns)*180/Math.PI)+360)%360) : 0;
+
+  if (plan.type === "hold"){
+    if (HDt > (tgt.radius||0) + 1e-6){
+      msg.innerHTML = `<span class="sf-bad">⚠ Target is offset ${HDt.toFixed(1)} m from the surface location — a Hold (vertical) profile cannot reach an off-center target. Use Slant or S-Shape instead.</span>`;
+      return;
+    }
+    well.survey.stations = [{md:0,inc:0,azi:0},{md:TD,inc:0,azi:0}];
+    well.survey.vsAzi = null;
+    msg.innerHTML = `<span class="sf-ok">✓ Vertical hold designed straight to ${Math.round(TD).toLocaleString()} m TVD.</span>`;
+    renderSurvey();
+    return;
+  }
+  if (!(plan.bur > 0)){ msg.innerHTML = '<span class="sf-bad">⚠ Build rate (BUR) must be greater than zero.</span>'; return; }
+  const R = 5400/(Math.PI*plan.bur);
+  const A = tgt.tvd - plan.kop;
+  if (!(A > 0)){ msg.innerHTML = '<span class="sf-bad">⚠ KOP must be shallower than the target TVD.</span>'; return; }
+
+  const missAt = thDeg=>{
+    const th = thDeg*Math.PI/180;
+    return R*(1-Math.cos(th)) + Math.tan(th)*(A - R*Math.sin(th)) - HDt;
+  };
+  const thetaMax = Math.min(89.9, (Math.asin(Math.min(1, A/R))*180/Math.PI) - 0.01);
+  if (thetaMax <= 0.05 || missAt(thetaMax) < 0){
+    msg.innerHTML = '<span class="sf-bad">⚠ Target unreachable at this KOP/build rate — try a deeper KOP, a higher build rate, or check the target coordinates.</span>';
+    return;
+  }
+  if (missAt(0.05) > 0){
+    msg.innerHTML = '<span class="sf-bad">⚠ Target is closer than the minimum build section alone reaches — try a shallower KOP or a lower build rate.</span>';
+    return;
+  }
+  let lo = 0.05, hi = thetaMax;
+  for (let i=0; i<60; i++){ const mid=(lo+hi)/2; if (missAt(mid) < 0) lo = mid; else hi = mid; }
+  const theta = (lo+hi)/2, thetaR = theta*Math.PI/180;
+
+  const buildMD = R*thetaR;
+  const eobMD = plan.kop + buildMD;
+  const holdDTVD = A - R*Math.sin(thetaR);
+  const holdMD = holdDTVD/Math.cos(thetaR);
+  const tgtMD = eobMD + holdMD;
+
+  const stations = [
+    {md:0, inc:0, azi:0},
+    {md:plan.kop, inc:0, azi:0},
+    {md:eobMD, inc:theta, azi:bearing},
+    {md:tgtMD, inc:theta, azi:bearing}
+  ];
+  let info = `inclination ${theta.toFixed(2)}°, KOP ${Math.round(plan.kop).toLocaleString()} m, EOB ${Math.round(eobMD).toLocaleString()} m, target ${Math.round(tgtMD).toLocaleString()} m MD`;
+
+  if (plan.type === "slant"){
+    if (TD > tgt.tvd + 0.5){
+      const extraMD = (TD - tgt.tvd)/Math.cos(thetaR);
+      stations.push({md: tgtMD+extraMD, inc:theta, azi:bearing});
+    }
+  } else if (plan.type === "s"){
+    if (!(plan.dor > 0)){ msg.innerHTML = '<span class="sf-bad">⚠ Drop rate (DOR) must be greater than zero.</span>'; return; }
+    const thetaF = Math.max(0, plan.incFinal||0);
+    if (thetaF >= theta){
+      msg.innerHTML = `<span class="sf-bad">⚠ Final inclination after drop must be less than the build angle (${theta.toFixed(1)}°).</span>`;
+      return;
+    }
+    const R2 = 5400/(Math.PI*plan.dor), thetaFR = thetaF*Math.PI/180;
+    const dropMD = R2*(thetaR-thetaFR);
+    const eodMD = tgtMD + dropMD;
+    const eodTVD = tgt.tvd + R2*(Math.sin(thetaR)-Math.sin(thetaFR));
+    const eodAzi = thetaF > 0.05 ? bearing : 0;
+    stations.push({md: eodMD, inc:thetaF, azi:eodAzi});
+    info += `, EOD ${Math.round(eodMD).toLocaleString()} m @ ${thetaF.toFixed(1)}°`;
+    if (TD > eodTVD + 0.5){
+      const extraDTVD = TD - eodTVD;
+      const extraMD = thetaF > 0.05 ? extraDTVD/Math.cos(thetaFR) : extraDTVD;
+      stations.push({md: eodMD+extraMD, inc:thetaF, azi:eodAzi});
+    }
+  }
+
+  well.survey.stations = stations;
+  well.survey.vsAzi = bearing;
+  msg.innerHTML = `<span class="sf-ok">✓ ${plan.type==="slant"?"Slant (Build &amp; Hold)":"S-Shape"} path designed — ${info}.</span>`;
+  renderSurvey();
+}
 function renderSurvey(){
   const b = document.getElementById("svBody"); if (!b) return;
+  if (!well.survey.plan) well.survey.plan = {type:"slant", kop:800, bur:3, dor:3, incFinal:0};
+  if (!well.survey.target) well.survey.target = {tvd:3400, ns:400, ew:300, radius:15};
+  const tp = well.survey.plan, tg = well.survey.target;
+  const setv = (id,v)=>{ const e = document.getElementById(id); if (e && document.activeElement!==e) e.value = v; };
+  setv("planType", tp.type); setv("tgTVD", tg.tvd); setv("tgR", tg.radius); setv("tgNS", tg.ns); setv("tgEW", tg.ew);
+  setv("plKOP", tp.kop); setv("plBUR", tp.bur); setv("plDOR", tp.dor); setv("plIncF", tp.incFinal);
+  const dropRow = document.getElementById("plDropRow"), params = document.getElementById("planParams");
+  if (dropRow) dropRow.style.display = tp.type === "s" ? "flex" : "none";
+  if (params) params.style.display = tp.type === "hold" ? "none" : "block";
   const rows = computeSurvey();
   b.innerHTML = well.survey.stations.map((s,i)=>{
     const r = rows[i];
@@ -2466,6 +2642,15 @@ function renderSurvey(){
     `<div class="kv"><span>Closure direction</span><span class="mono">${bearing.toFixed(1)}°</span></div>` +
     `<div class="kv"><span>Max DLS</span><span class="mono ${maxCls}">${maxDLS.dls.toFixed(2)} °/30m @ ${Math.round(maxDLS.md).toLocaleString()} m</span></div>` +
     `<div class="kv"><span>VS azimuth used</span><span class="mono">${(well.survey.vsAzi != null ? well.survey.vsAzi : last.azi).toFixed(1)}°</span></div>`;
+  if (well.survey.target){
+    const tc = targetCheck(rows), tgt = well.survey.target;
+    const hit = tc.dist <= (tgt.radius||0) + 1e-6;
+    const tgtBearing = Math.hypot(tgt.ns,tgt.ew) > 1e-6 ? (((Math.atan2(tgt.ew,tgt.ns)*180/Math.PI)+360)%360) : 0;
+    document.getElementById("svSummary").innerHTML +=
+      `<div class="hr"></div>` +
+      `<div class="kv"><span>Target @ ${tgt.tvd.toLocaleString()} m TVD</span><span class="mono">${Math.hypot(tgt.ns,tgt.ew).toFixed(1)} m @ ${tgtBearing.toFixed(1)}°</span></div>` +
+      `<div class="kv"><span>Target miss distance</span><span class="mono ${hit?'sf-ok':'sf-bad'}">${tc.dist.toFixed(1)} m ${hit?'✓ inside radius':'✗ outside radius'}</span></div>`;
+  }
   drawCompassRose(); drawSurveyChart();
 }
 function drawCompassRose(){
@@ -2474,7 +2659,9 @@ function drawCompassRose(){
   ctx.clearRect(0,0,W,H);
   const cx = W/2, cy = H/2;
   const rows = computeSurvey();
-  const maxHD = Math.max(10, ...rows.map(r=>r.hd));
+  const tgt = well.survey.target;
+  const tgtReach = tgt ? Math.hypot(tgt.ns, tgt.ew) + (tgt.radius||0) : 0;
+  const maxHD = Math.max(10, tgtReach, ...rows.map(r=>r.hd));
   const R = Math.min(W,H)/2 - 46;
   const scale = R/maxHD;
   ctx.strokeStyle = "#c9c4b6"; ctx.fillStyle = "#6b6659"; ctx.font = "9px Consolas"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
@@ -2509,14 +2696,30 @@ function drawCompassRose(){
   const bx = cx + last.ew*scale, by = cy - last.ns*scale;
   ctx.fillStyle = "#b91c1c"; ctx.beginPath(); ctx.arc(bx,by,5,0,2*Math.PI); ctx.fill();
   const bearing = ((Math.atan2(last.ew,last.ns)*180/Math.PI)+360)%360;
+  if (tgt){
+    const tx = cx + tgt.ew*scale, ty = cy - tgt.ns*scale;
+    ctx.strokeStyle = "#c2410c"; ctx.setLineDash([4,3]); ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(tx, ty, Math.max(3, (tgt.radius||0)*scale), 0, 2*Math.PI); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = "#c2410c";
+    ctx.beginPath(); ctx.moveTo(tx,ty-7); ctx.lineTo(tx+6,ty+5); ctx.lineTo(tx-6,ty+5); ctx.closePath(); ctx.fill();
+    ctx.font = "9px Consolas"; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+    ctx.fillText("TARGET", tx, ty+18);
+  }
   ctx.fillStyle = "#1b1b1b"; ctx.font = "10px Consolas"; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
   ctx.fillText(`Closure: ${Math.round(last.hd)} m @ ${bearing.toFixed(1)}°`, 8, H-10);
 }
 function drawSurveyChart(){
   const rows = computeSurvey();
-  mkChart("surveyChart", {type:"line", data:{datasets:[
-    {label:"Wellpath (TVD vs VS)", data: rows.map(r=>({x:r.vs, y:r.tvd})), borderColor:"#0b3d91", borderWidth:2}
-  ]}, options: depthOpts("Vertical section (m)")});
+  const ds = [{label:"Wellpath (TVD vs VS)", data: rows.map(r=>({x:r.vs, y:r.tvd})), borderColor:"#0b3d91", borderWidth:2}];
+  const tgt = well.survey.target;
+  if (tgt){
+    const vsAzi = (well.survey.vsAzi != null ? well.survey.vsAzi : (rows[rows.length-1].azi||0)) * Math.PI/180;
+    const tvs = tgt.ns*Math.cos(vsAzi) + tgt.ew*Math.sin(vsAzi);
+    ds.push({label:"Target", data:[{x:tvs, y:tgt.tvd}], showLine:false, pointRadius:7, pointStyle:"rectRot",
+              backgroundColor:"#c2410c", borderColor:"#7c2d12"});
+  }
+  mkChart("surveyChart", {type:"line", data:{datasets:ds}, options: depthOpts("Vertical section (m)")});
 }
 
 /* ---------- Strings / explorer / schematic ---------- */
@@ -2836,6 +3039,10 @@ function buildReport(){
     const svBearing = ((Math.atan2(svLast.ew, svLast.ns)*180/Math.PI)+360)%360;
     const svMaxDLS = svRows.reduce((m,r)=> r.dls > m.dls ? r : m, {dls:-1, md:0});
     h += `<h3 style="font-size:12px">0 — Directional survey (minimum curvature)</h3><p>Final MD ${Math.round(svLast.md).toLocaleString()} m, final TVD ${svLast.tvd.toFixed(1)} m, closure ${svLast.hd.toFixed(1)} m @ ${svBearing.toFixed(1)}°, max DLS ${svMaxDLS.dls.toFixed(2)}°/30m at ${Math.round(svMaxDLS.md).toLocaleString()} m MD.</p>`;
+    if (well.survey.target){
+      const tgt = well.survey.target, tc = targetCheck(svRows), hit = tc.dist <= (tgt.radius||0) + 1e-6;
+      h += `<p>Target: ${Math.hypot(tgt.ns,tgt.ew).toFixed(1)} m offset at ${tgt.tvd.toLocaleString()} m TVD, radius ${tgt.radius} m — miss distance <b>${tc.dist.toFixed(1)} m</b> (${hit?"inside radius":"outside radius"}). Profile: ${well.survey.plan.type==="hold"?"Hold (vertical)":well.survey.plan.type==="slant"?"Slant (Build &amp; Hold)":"S-Shape (Build, Hold &amp; Drop)"}.</p>`;
+    }
   }
   h += `<h3 style="font-size:12px">1 — Casing program</h3><table class="grid"><thead><tr><th>String</th><th>Hole</th><th>OD × Wt × Grade</th><th>Interval m</th><th>TOC m</th><th>MW sg</th></tr></thead><tbody>`;
   well.strings.forEach(s=>{
@@ -3008,6 +3215,8 @@ function loadProject(ev){
         const wTD = (w.strings||[]).length ? Math.max(...w.strings.map(s=>s.shoe)) : 3800;
         w.survey = {stations:[{md:0,inc:0,azi:0},{md:wTD,inc:0,azi:0}], vsAzi:null};
       }
+      if (!w.survey.target) w.survey.target = {tvd:3400, ns:400, ew:300, radius:15};
+      if (!w.survey.plan) w.survey.plan = {type:"slant", kop:800, bur:3, dor:3, incFinal:0};
       // legacy ppg project → sg (detect via formation EMW magnitudes)
       if ((w.formations||[]).some(r=> r[1] > 5)){
         w.formations.forEach(r=>{ r[1]=+(r[1]/8.345).toFixed(3); r[2]=+(r[2]/8.345).toFixed(3); });
@@ -3028,7 +3237,8 @@ function newProject(){
   if (!confirm("Start a new project? Unsaved changes will be lost.")) return;
   well.name = prompt("Well name:", "New Well-1") || "New Well-1";
   seedDefaultStrings(); well.seats = null;
-  well.survey = {stations:[{md:0,inc:0,azi:0},{md:3800,inc:0,azi:0}], vsAzi:null};
+  well.survey = {stations:[{md:0,inc:0,azi:0},{md:3800,inc:0,azi:0}], vsAzi:null,
+                 target:{tvd:3400,ns:400,ew:300,radius:15}, plan:{type:"slant",kop:800,bur:3,dor:3,incFinal:0}};
   initAll();
 }
 
@@ -3068,6 +3278,8 @@ function initAll(){
     const TD = well.strings.length ? Math.max(...well.strings.map(s=>s.shoe)) : 3800;
     well.survey = {stations:[{md:0,inc:0,azi:0},{md:TD,inc:0,azi:0}], vsAzi:null};
   }
+  if (!well.survey.target) well.survey.target = {tvd:3400, ns:400, ew:300, radius:15};
+  if (!well.survey.plan) well.survey.plan = {type:"slant", kop:800, bur:3, dor:3, incFinal:0};
   syncChain();
   populateStringSelect(); renderStrTable(); renderFm(); refreshTree(); renderSurvey();
   drawMudChart(); runStressCheck(); drawSchematic();
