@@ -172,6 +172,14 @@ table.grid tr:nth-child(even) td{background:#faf9f6}
       <!-- ============ COMPASS (directional survey) ============ -->
       <div id="view-compass" class="grow p1 flex gap1 hide" style="background:#d9d4c8;overflow:hidden;min-height:0">
         <div class="panel flex col scroll-col" style="width:340px;flex-shrink:0">
+          <div class="sec-h"><span>📍 Well Surface Location</span></div>
+          <div class="p1">
+            <div class="flex gap1">
+              <div class="grow"><label class="fld">Surface Northing, m</label><input id="locN" class="inp" type="number" step="10" onchange="locEdit('north',this.value)"></div>
+              <div class="grow"><label class="fld">Surface Easting, m</label><input id="locE" class="inp" type="number" step="10" onchange="locEdit('east',this.value)"></div>
+            </div>
+            <div class="note" style="margin-top:3px">Absolute site coordinates (e.g. UTM or local grid). Every other N/S · E/W value in this tab is a relative offset from this point.</div>
+          </div>
           <div class="sec-h"><span>🎯 Target &amp; Well-Path Design</span></div>
           <div class="p1">
             <label class="fld" title="Landmark COMPASS-style profile: Hold = vertical, Slant = single build-and-hold (Type I / J), S-Shape = build-hold-drop (Type II)">Profile type</label>
@@ -240,8 +248,19 @@ table.grid tr:nth-child(even) td{background:#faf9f6}
 
         <div class="grow flex col gap1 scroll-col" style="min-width:0">
           <div class="panel flex col" style="min-height:360px">
-            <div class="plot-title"><span>Plan View — Compass Rose</span><span class="note">N/E departure from surface location</span></div>
-            <div class="grow p1" style="display:flex;justify-content:center;align-items:center;background:#fff"><canvas id="compassCanvas" width="480" height="480"></canvas></div>
+            <div class="plot-title"><span id="viewTitle">Plan View — Compass Rose</span>
+              <span class="flex gap1" style="align-items:center">
+                <button class="btn small primary" id="viewBtnPlan" onclick="setCompassView('plan')">🧭 Plan</button>
+                <button class="btn small" id="viewBtn3D" onclick="setCompassView('3d')">🧊 3D</button>
+              </span></div>
+            <div id="view3DControls" class="flex gap1 hide" style="padding:3px 8px;align-items:center;font-size:10px;background:#f6f4ef;border-bottom:1px solid var(--bevel-dark)">
+              <span>Rotate</span><input type="range" id="v3Azi" min="-180" max="180" value="-35" oninput="draw3D()" style="flex:1">
+              <span>Tilt</span><input type="range" id="v3Elev" min="5" max="85" value="25" oninput="draw3D()" style="flex:1">
+            </div>
+            <div class="grow p1" style="display:flex;justify-content:center;align-items:center;background:#fff;position:relative">
+              <canvas id="compassCanvas" width="480" height="480"></canvas>
+              <canvas id="trajectory3D" width="480" height="480" class="hide" style="position:absolute"></canvas>
+            </div>
           </div>
           <div class="panel grow flex col" style="min-height:280px">
             <div class="plot-title"><span>Directional Profile — TVD vs Vertical Section</span></div>
@@ -997,6 +1016,7 @@ function vmeEnvelope(od, id, yLimit){
 let well = {
   name: "Well-1",
   units: "m",
+  location: {north:0, east:0},        // absolute surface (wellhead) coordinates, e.g. UTM/local grid
   formations: [ // TVD m, pore sg, frac sg (Basrah-type profile)
     [0,    1.03, 1.44],
     [450,  1.04, 1.58],
@@ -2604,12 +2624,20 @@ function designToTarget(){
   msg.innerHTML = `<span class="sf-ok">✓ ${plan.type==="slant"?"Slant (Build &amp; Hold)":"S-Shape"} path designed — ${info}.</span>`;
   renderSurvey();
 }
+function locEdit(key, val){
+  const n = parseNum(val);
+  if (!well.location) well.location = {north:0, east:0};
+  if (Number.isFinite(n)) well.location[key] = n;
+  renderSurvey();
+}
 function renderSurvey(){
   const b = document.getElementById("svBody"); if (!b) return;
   if (!well.survey.plan) well.survey.plan = {type:"slant", kop:800, bur:3, dor:3, incFinal:0};
   if (!well.survey.target) well.survey.target = {tvd:3400, ns:400, ew:300, radius:15};
-  const tp = well.survey.plan, tg = well.survey.target;
+  if (!well.location) well.location = {north:0, east:0};
+  const tp = well.survey.plan, tg = well.survey.target, loc = well.location;
   const setv = (id,v)=>{ const e = document.getElementById(id); if (e && document.activeElement!==e) e.value = v; };
+  setv("locN", loc.north); setv("locE", loc.east);
   setv("planType", tp.type); setv("tgTVD", tg.tvd); setv("tgR", tg.radius); setv("tgNS", tg.ns); setv("tgEW", tg.ew);
   setv("plKOP", tp.kop); setv("plBUR", tp.bur); setv("plDOR", tp.dor); setv("plIncF", tp.incFinal);
   const dropRow = document.getElementById("plDropRow"), params = document.getElementById("planParams");
@@ -2642,6 +2670,10 @@ function renderSurvey(){
     `<div class="kv"><span>Closure direction</span><span class="mono">${bearing.toFixed(1)}°</span></div>` +
     `<div class="kv"><span>Max DLS</span><span class="mono ${maxCls}">${maxDLS.dls.toFixed(2)} °/30m @ ${Math.round(maxDLS.md).toLocaleString()} m</span></div>` +
     `<div class="kv"><span>VS azimuth used</span><span class="mono">${(well.survey.vsAzi != null ? well.survey.vsAzi : last.azi).toFixed(1)}°</span></div>`;
+  document.getElementById("svSummary").innerHTML +=
+    `<div class="hr"></div>` +
+    `<div class="kv"><span>Surface location</span><span class="mono">N ${loc.north.toLocaleString()}  E ${loc.east.toLocaleString()}</span></div>` +
+    `<div class="kv"><span>Bottom-hole (absolute)</span><span class="mono">N ${(loc.north+last.ns).toFixed(1)}  E ${(loc.east+last.ew).toFixed(1)}</span></div>`;
   if (well.survey.target){
     const tc = targetCheck(rows), tgt = well.survey.target;
     const hit = tc.dist <= (tgt.radius||0) + 1e-6;
@@ -2649,9 +2681,11 @@ function renderSurvey(){
     document.getElementById("svSummary").innerHTML +=
       `<div class="hr"></div>` +
       `<div class="kv"><span>Target @ ${tgt.tvd.toLocaleString()} m TVD</span><span class="mono">${Math.hypot(tgt.ns,tgt.ew).toFixed(1)} m @ ${tgtBearing.toFixed(1)}°</span></div>` +
+      `<div class="kv"><span>Target (absolute)</span><span class="mono">N ${(loc.north+tgt.ns).toFixed(1)}  E ${(loc.east+tgt.ew).toFixed(1)}</span></div>` +
       `<div class="kv"><span>Target miss distance</span><span class="mono ${hit?'sf-ok':'sf-bad'}">${tc.dist.toFixed(1)} m ${hit?'✓ inside radius':'✗ outside radius'}</span></div>`;
   }
-  drawCompassRose(); drawSurveyChart();
+  if (compassViewMode === "3d") draw3D(); else drawCompassRose();
+  drawSurveyChart();
 }
 function drawCompassRose(){
   const cv = document.getElementById("compassCanvas"); if (!cv) return;
@@ -2691,10 +2725,14 @@ function drawCompassRose(){
     if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
   });
   ctx.strokeStyle = "#0b3d91"; ctx.lineWidth = 2; ctx.stroke();
+  const loc = well.location || {north:0, east:0};
   ctx.fillStyle = "#0f7b3a"; ctx.beginPath(); ctx.arc(cx,cy,4,0,2*Math.PI); ctx.fill();
+  ctx.font = "8.5px Consolas"; ctx.fillStyle = "#0f7b3a"; ctx.textAlign = "left"; ctx.textBaseline = "top";
+  ctx.fillText(`N ${loc.north.toLocaleString()} E ${loc.east.toLocaleString()}`, cx+7, cy+4);
   const last = rows[rows.length-1];
   const bx = cx + last.ew*scale, by = cy - last.ns*scale;
   ctx.fillStyle = "#b91c1c"; ctx.beginPath(); ctx.arc(bx,by,5,0,2*Math.PI); ctx.fill();
+  ctx.fillText(`N ${(loc.north+last.ns).toFixed(0)} E ${(loc.east+last.ew).toFixed(0)}`, bx+7, by+4);
   const bearing = ((Math.atan2(last.ew,last.ns)*180/Math.PI)+360)%360;
   if (tgt){
     const tx = cx + tgt.ew*scale, ty = cy - tgt.ns*scale;
@@ -2708,6 +2746,81 @@ function drawCompassRose(){
   }
   ctx.fillStyle = "#1b1b1b"; ctx.font = "10px Consolas"; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
   ctx.fillText(`Closure: ${Math.round(last.hd)} m @ ${bearing.toFixed(1)}°`, 8, H-10);
+}
+
+/* ---------- 3D trajectory view (rotate/tilt orthographic projection) ----------
+   Real 3D space: X=East, Y=North, Z=Up (so Z = -TVD). The view rotates the scene
+   about the vertical (Z) axis by `azi`, then tilts it about the resulting horizontal
+   axis by `elev` — a standard two-angle orthographic projection, drawn on a plain
+   canvas so no 3D/WebGL library is required. */
+let compassViewMode = "plan";
+function setCompassView(mode){
+  compassViewMode = mode;
+  document.getElementById("compassCanvas").classList.toggle("hide", mode!=="plan");
+  document.getElementById("trajectory3D").classList.toggle("hide", mode!=="3d");
+  document.getElementById("view3DControls").classList.toggle("hide", mode!=="3d");
+  document.getElementById("viewBtnPlan").classList.toggle("primary", mode==="plan");
+  document.getElementById("viewBtn3D").classList.toggle("primary", mode==="3d");
+  document.getElementById("viewTitle").textContent = mode==="3d" ? "Plan View — 3D Trajectory" : "Plan View — Compass Rose";
+  if (mode==="3d") draw3D(); else drawCompassRose();
+}
+function project3D(e, n, tvd, azi, elev){
+  const x = e, y = n, z = -tvd;
+  const xr = x*Math.cos(azi) - y*Math.sin(azi);
+  const yr = x*Math.sin(azi) + y*Math.cos(azi);
+  const yProj = yr*Math.cos(elev) - z*Math.sin(elev);
+  return {x: xr, y: yProj};
+}
+function draw3D(){
+  const cv = document.getElementById("trajectory3D"); if (!cv) return;
+  const ctx = cv.getContext("2d"), W = cv.width, H = cv.height;
+  ctx.clearRect(0,0,W,H);
+  const cx = W/2, cy = H*0.55;
+  const azi = (numOr("v3Azi",-35))*Math.PI/180, elev = (numOr("v3Elev",25))*Math.PI/180;
+  const rows = computeSurvey();
+  const tgt = well.survey.target;
+  const maxHD = Math.max(10, tgt?Math.hypot(tgt.ns,tgt.ew)+(tgt.radius||0):0, ...rows.map(r=>r.hd));
+  const maxTVD = Math.max(10, rows[rows.length-1].tvd, tgt?tgt.tvd:0);
+  const span = Math.max(maxHD, maxTVD) * 1.3;
+  const scale = (Math.min(W,H)/2 - 40) / span;
+  const P = (e,n,tvd)=>{ const p = project3D(e,n,tvd,azi,elev); return {x: cx + p.x*scale, y: cy - p.y*scale}; };
+
+  // floor grid at surface (TVD=0)
+  ctx.strokeStyle = "#dcd7ca"; ctx.lineWidth = 1;
+  const gN = 4, gSpan = maxHD*1.15;
+  for (let i=-gN; i<=gN; i++){
+    let a = P(i*gSpan/gN, -gSpan, 0), b = P(i*gSpan/gN, gSpan, 0);
+    ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+    a = P(-gSpan, i*gSpan/gN, 0); b = P(gSpan, i*gSpan/gN, 0);
+    ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+  }
+  // axes: North, East, TVD(down)
+  const O = P(0,0,0), Nax = P(0,gSpan*1.2,0), Eax = P(gSpan*1.2,0,0), Dax = P(0,0,maxTVD*1.25);
+  ctx.strokeStyle = "#8b7355"; ctx.lineWidth = 1.4; ctx.font = "bold 11px Segoe UI"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  [[Nax,"N"],[Eax,"E"],[Dax,"TVD ↓"]].forEach(([p,label])=>{
+    ctx.beginPath(); ctx.moveTo(O.x,O.y); ctx.lineTo(p.x,p.y); ctx.stroke();
+    ctx.fillStyle = "#0a246a"; ctx.fillText(label, p.x, p.y);
+  });
+  // wellpath
+  ctx.strokeStyle = "#0b3d91"; ctx.lineWidth = 2.4; ctx.beginPath();
+  rows.forEach((r,i)=>{ const p = P(r.ew, r.ns, r.tvd); if (i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y); });
+  ctx.stroke();
+  // target (projected acceptance circle)
+  if (tgt){
+    const tp = P(tgt.ew, tgt.ns, tgt.tvd);
+    const rPx = Math.max(3, (tgt.radius||0)*scale);
+    ctx.strokeStyle = "#c2410c"; ctx.setLineDash([4,3]); ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.ellipse(tp.x, tp.y, rPx, Math.max(2, rPx*Math.abs(Math.cos(elev))), 0, 0, 2*Math.PI); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = "#c2410c"; ctx.beginPath(); ctx.arc(tp.x,tp.y,3,0,2*Math.PI); ctx.fill();
+    ctx.font = "9px Consolas"; ctx.fillText("TARGET", tp.x, tp.y+14);
+  }
+  // surface + bottom-hole
+  ctx.fillStyle = "#0f7b3a"; ctx.beginPath(); ctx.arc(O.x,O.y,4,0,2*Math.PI); ctx.fill();
+  const last = rows[rows.length-1], bp = P(last.ew, last.ns, last.tvd);
+  ctx.fillStyle = "#b91c1c"; ctx.beginPath(); ctx.arc(bp.x,bp.y,5,0,2*Math.PI); ctx.fill();
+  ctx.fillStyle = "#1b1b1b"; ctx.font = "10px Consolas"; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+  ctx.fillText(`TD ${Math.round(last.md)} m MD · ${Math.round(last.tvd)} m TVD`, 8, H-10);
 }
 function drawSurveyChart(){
   const rows = computeSurvey();
@@ -3080,6 +3193,7 @@ function buildReport(){
    is built and again right before printing (charts animate in asynchronously). */
 const REPORT_FIGS = [
   {id:"compassCanvas", cap:"Compass — plan-view directional survey (N/E departure)"},
+  {id:"trajectory3D",  cap:"Compass — 3D wellbore trajectory"},
   {id:"surveyChart",   cap:"Directional profile — TVD vs vertical section"},
   {id:"schemCanvas",   cap:"Well schematic — casing scheme and cement tops"},
   {id:"burstChart",    cap:"Burst — design load vs rating along the string"},
@@ -3099,7 +3213,7 @@ function renderReportFigures(){
     try { url = cv.toDataURL("image/png"); } catch(e){ url = ""; }
     if (!url || url.length < 2000){                     // still blank -> show why, don't drop silently
       out += `<figure class="fig"><div style="padding:18px;text-align:center;color:#a00;font-size:9px;border:1px dashed #caa">
-                Plot not captured — open the ${f.id === "mudChart" ? "CasingSeat" : f.id === "fmChart" ? "Formation Data" : f.id === "schemCanvas" ? "Well Schematic" : (f.id === "compassCanvas" || f.id === "surveyChart") ? "Compass" : "StressCheck"} tab once, then print again.</div>
+                Plot not captured — open the ${f.id === "mudChart" ? "CasingSeat" : f.id === "fmChart" ? "Formation Data" : f.id === "schemCanvas" ? "Well Schematic" : (f.id === "compassCanvas" || f.id === "surveyChart" || f.id === "trajectory3D") ? "Compass" : "StressCheck"} tab once, then print again.</div>
               <figcaption>Figure ${i+1} — ${f.cap}</figcaption></figure>`;
       return;
     }
@@ -3162,7 +3276,7 @@ function withAllViewsRendered(work){
     }
   });
   // redraw everything now that the canvases have a real layout box
-  try { drawCompassRose(); drawSurveyChart(); drawMudChart(); drawSCCharts(); drawSchematic(); drawFmChart(); } catch(e){}
+  try { drawCompassRose(); draw3D(); drawSurveyChart(); drawMudChart(); drawSCCharts(); drawSchematic(); drawFmChart(); } catch(e){}
   if (window.Chart && Chart.getChart){
     document.querySelectorAll("canvas").forEach(cv=>{
       const ch = Chart.getChart(cv);
@@ -3217,6 +3331,7 @@ function loadProject(ev){
       }
       if (!w.survey.target) w.survey.target = {tvd:3400, ns:400, ew:300, radius:15};
       if (!w.survey.plan) w.survey.plan = {type:"slant", kop:800, bur:3, dor:3, incFinal:0};
+      if (!w.location) w.location = {north:0, east:0};
       // legacy ppg project → sg (detect via formation EMW magnitudes)
       if ((w.formations||[]).some(r=> r[1] > 5)){
         w.formations.forEach(r=>{ r[1]=+(r[1]/8.345).toFixed(3); r[2]=+(r[2]/8.345).toFixed(3); });
@@ -3239,6 +3354,7 @@ function newProject(){
   seedDefaultStrings(); well.seats = null;
   well.survey = {stations:[{md:0,inc:0,azi:0},{md:3800,inc:0,azi:0}], vsAzi:null,
                  target:{tvd:3400,ns:400,ew:300,radius:15}, plan:{type:"slant",kop:800,bur:3,dor:3,incFinal:0}};
+  well.location = {north:0, east:0};
   initAll();
 }
 
@@ -3280,6 +3396,7 @@ function initAll(){
   }
   if (!well.survey.target) well.survey.target = {tvd:3400, ns:400, ew:300, radius:15};
   if (!well.survey.plan) well.survey.plan = {type:"slant", kop:800, bur:3, dor:3, incFinal:0};
+  if (!well.location) well.location = {north:0, east:0};
   syncChain();
   populateStringSelect(); renderStrTable(); renderFm(); refreshTree(); renderSurvey();
   drawMudChart(); runStressCheck(); drawSchematic();
