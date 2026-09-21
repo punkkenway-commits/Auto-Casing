@@ -1156,7 +1156,8 @@ function drawBuilding(b){
   ctx.fillRect(sx-w/2,sy-h/2,w,h);
   ctx.strokeRect(sx-w/2,sy-h/2,w,h);
   ctx.fillStyle='#fff'; ctx.font='11px sans-serif'; ctx.textAlign='center';
-  const label = (fac.buildingNames[b.defKey]||b.defKey).split(' ').map(s=>s[0]).join('');
+  const nameWords = (fac.buildingNames[b.defKey]||b.defKey).split(' ');
+  const label = nameWords.length>1 ? nameWords.map(s=>s[0]).join('') : nameWords[0].slice(0,2).toUpperCase();
   ctx.fillText(label, sx, sy+4);
   if(b.constructing){
     ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(sx-w/2,sy-h/2,w,h*(1-b.buildProgress/b.buildTime));
