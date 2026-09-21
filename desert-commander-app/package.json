@@ -1,0 +1,50 @@
+{
+  "name": "desert-commander",
+  "version": "1.0.0",
+  "description": "Desert Commander - an original real-time strategy game with an Iraqi Army faction",
+  "main": "main.js",
+  "author": "Desert Commander",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "sync": "node -e \"require('fs').copyFileSync(require('path').join(__dirname,'..','desert-commander.html'), require('path').join(__dirname,'game.html'))\"",
+    "start": "npm run sync && electron .",
+    "dist:win": "npm run sync && electron-builder --win --x64",
+    "dist:linux": "npm run sync && electron-builder --linux --x64"
+  },
+  "devDependencies": {
+    "electron": "^32.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.desertcommander.game",
+    "productName": "Desert Commander",
+    "publish": null,
+    "files": [
+      "main.js",
+      "preload.js",
+      "game.html",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "artifactName": "DesertCommander-Setup-${version}.${ext}"
+    },
+    "linux": {
+      "target": ["AppImage"],
+      "category": "Game"
+    }
+  }
+}
