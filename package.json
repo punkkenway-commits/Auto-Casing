@@ -1,0 +1,11 @@
+{
+  "name": "auto-casing",
+  "private": true,
+  "description": "BASIRA casing design tools — verification suite for BASIRA-EDM.html",
+  "scripts": {
+    "test": "node test/run-tests.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.56.1"
+  }
+}
