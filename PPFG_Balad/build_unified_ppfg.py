@@ -239,21 +239,21 @@ def plot(res, wells, ebs, path_png):
     from matplotlib.lines import Line2D
 
     z = res["grid"]
-    fig = plt.figure(figsize=(11, 13.5), dpi=150)
-    ax = fig.add_axes([0.15, 0.215, 0.79, 0.69])
+    fig = plt.figure(figsize=(16.5, 13.5), dpi=150)
+    ax = fig.add_axes([0.095, 0.215, 0.545, 0.69])
     ax.set_facecolor("#FFFFC8")
     ax.set_xlim(0.6, 2.6)
     ax.set_ylim(4600, 0)
     ax.xaxis.tick_top()
     ax.xaxis.set_label_position("top")
     ax.set_xlabel("EMW (sg)", fontsize=13, fontweight="bold", labelpad=8)
-    ax.set_ylabel("Depth (m TVD-RT)", fontsize=13, fontweight="bold", labelpad=58)
+    ax.set_ylabel("Depth (m TVD-RT)", fontsize=13, fontweight="bold", labelpad=62)
     ax.set_xticks(np.arange(0.6, 2.61, 0.2))
     ax.set_yticks(np.arange(0, 4601, 500))
     ax.grid(color="#9a9a9a", lw=0.5)
-    fig.text(0.545, 0.965, "BALAD FIELD GENERIC PPFG", ha="center", fontsize=18,
+    fig.text(0.5, 0.965, "BALAD FIELD GENERIC PPFG", ha="center", fontsize=18,
              fontweight="bold", color="#1f3a93")
-    fig.text(0.545, 0.948, "Unified from 9 offset wells (Balad-1 ... Balad-9)  |  Eaton, nu = 0.25  |  "
+    fig.text(0.5, 0.948, "Unified from 9 offset wells (Balad-1 ... Balad-9)  |  Eaton, nu = 0.25  |  "
              "OBG from integrated RHOB/DT", ha="center", fontsize=10, color="#1f3a93")
 
     # per-well curves (thin) like the offset-well curves on the Faihaa chart
@@ -342,11 +342,88 @@ def plot(res, wells, ebs, path_png):
     labels += ["Kick (kill MW)", "Losses (MW at loss)", "Gas-cut mud (MW)",
                "Casing shoe (approx.)", "Safe mud window (with margins)"]
     fig.legend(handles, labels, loc="lower center", ncol=3, fontsize=8.2,
-               frameon=True, bbox_to_anchor=(0.545, 0.022))
-    fig.text(0.545, 0.006, "Figure - Pore Pressure and Fracture Pressure Prediction, Balad Field (field-generic)",
+               frameon=True, bbox_to_anchor=(0.3675, 0.03))
+    method_panel(fig, res)
+    fig.text(0.3675, 0.008, "Figure - Pore Pressure and Fracture Pressure Prediction, Balad Field (field-generic)",
              ha="center", fontsize=10, style="italic", fontweight="bold")
     fig.savefig(path_png)
     plt.close(fig)
+
+
+
+def method_panel(fig, res):
+    """Methodology box written inside the figure (right-hand panel)."""
+    import textwrap
+    lz = [z for z in res["loss_zones"] if z["top"] > 100]
+    steps = [
+        ("1. Input data",
+         "Final PPFG sheets of 9 offset wells (Balad-1 ... Balad-9): PP, FG, OBG, actual MW and "
+         "drilling events (kicks, losses, gas-cut mud)."),
+        ("2. Normalisation",
+         "All pressures converted to EMW (sg) vs TVD-RT (m) with the workbook factors "
+         "(0.0519 psi/ft/ppg, 8.337 ppg/sg, 3.281 ft/m). Common 10 m depth grid; "
+         "interpolation done in pressure (psi) then converted to EMW."),
+        ("3. Overburden (OBG)",
+         "sigma_v = g * integral(rho_b dz). rho_b from QC'd RHOB (|DRHO| <= 0.15); where RHOB is "
+         f"missing, Gardner rho = {res['a_gardner']:.3f} * V^0.25 from DT (calibrated on Balad "
+         "RHOB/DT overlap); surface trend from 1.95 g/cc. Field OBG = median of the 9 wells."),
+        ("4. Pore pressure (PP)",
+         "Per-depth statistics of all wells: PP Low = minimum, PP P50 = median (Most-Likely), "
+         "PP High = maximum envelope -> used for DESIGN (kick, casing burst, min MW)."),
+        ("5. Fracture gradient (FG)",
+         "Eaton (1969): FG = PP + nu/(1-nu) * (OBG - PP), nu = 0.25. "
+         "FG Most-Likely = Eaton(PP P50); FG Low = lowest per-well Eaton FG."),
+        ("6. Calibration with drilling events",
+         "Loss events of all wells clustered into zones (gap < 300 m); zone limit = lowest MW "
+         "at which losses occurred"
+         + ("".join(f"; {z['top']:.0f}-{z['base']:.0f} m = {z['limit']:.2f} sg" for z in lz))
+         + ". FG DESIGN = min(FG Low, loss-zone limit). Kicks / kill MW used to check PP."),
+        ("7. Safe mud window",
+         f"Min MW = PP High + {TRIP_MARGIN_SG:.2f} sg (trip/swab margin ~0.25 ppg); "
+         f"Max MW = FG DESIGN - {KICK_MARGIN_SG:.2f} sg (kick/surge margin ~0.5 ppg). "
+         "Green band on the chart."),
+        ("8. Reference curves (not for design)",
+         "EBS-1996 East Baghdad study: its FG uses 2nu/(1-nu) = breakdown pressure of an intact "
+         "hole (Haimson & Fairhurst 1967), higher than Eaton propagation/closure FG."),
+        ("Limitations",
+         "Only 3 wells below 3600 m (Ba-1/2/3) -> low confidence; overpressure top varies "
+         "3680-4000 m. No LOT/FIT/MDT in the data set - calibrate when available. "
+         "Depths are RT, not TVDSS; wells not aligned on formation tops."),
+        ("References",
+         "Eaton 1969 (SPE-2163-PA); Hubbert & Willis 1957; Haimson & Fairhurst 1967 (SPE-1710); "
+         "Gardner et al. 1974 (Geophysics); Daines 1982 (SPE-9254); Bourgoyne et al. 1986, "
+         "Applied Drilling Engineering Ch.6-7; Zhang 2011 (Earth-Sci. Rev.); Zoback 2007, "
+         "Reservoir Geomechanics."),
+    ]
+    box = [0.665, 0.03, 0.315, 0.875]
+    pax = fig.add_axes(box)
+    hin = box[3] * fig.get_figheight()           # panel height in inches
+    lh = 8.2 * 1.38 / 72 / hin                   # one body line in axes fraction
+    pax.set_xlim(0, 1)
+    pax.set_ylim(0, 1)
+    pax.set_xticks([])
+    pax.set_yticks([])
+    pax.set_facecolor("#F7F9FC")
+    for sp in pax.spines.values():
+        sp.set_edgecolor("#1f3a93")
+        sp.set_linewidth(1.4)
+    pax.add_patch(plt_rect(0, 0.96, 1, 0.04, "#1f3a93"))
+    pax.text(0.5, 0.98, "METHODOLOGY - Field-Generic PPFG", ha="center", va="center",
+             fontsize=11.5, fontweight="bold", color="white")
+    y = 0.935
+    for head, body in steps:
+        col = "#a00000" if head in ("Limitations",) else "#1f3a93"
+        pax.text(0.03, y, head, fontsize=9.3, fontweight="bold", color=col, va="top")
+        y -= 1.45 * lh
+        lines = textwrap.wrap(body, 66)
+        pax.text(0.045, y, "\n".join(lines), fontsize=8.2, va="top", color="#222",
+                 linespacing=1.38)
+        y -= lh * len(lines) + 1.1 * lh
+
+
+def plt_rect(x, y, w, h, color):
+    from matplotlib.patches import Rectangle
+    return Rectangle((x, y), w, h, facecolor=color, edgecolor="none")
 
 
 # ----------------------------------------------------------------- export
