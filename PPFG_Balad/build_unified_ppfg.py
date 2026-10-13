@@ -17,10 +17,13 @@ following the standard offset-well "envelope" workflow:
         FG = PP + nu/(1-nu) * (OBG - PP),  nu = 0.25  (same nu as the workbook)
      computed per well with the field OBG, then
         FG Most-Likely = Eaton(PP P50)
-        FG Low (design) = lowest per-well FG, capped by the mud weight at which
-                          losses actually happened (loss-calibrated).
-  6. QC against drilling events: kicks (kill MW), losses (MW at loss).
-  7. Design limits:  Min MW = PP High + trip margin,  Max MW = FG Low - kick/surge margin.
+        FG Design Low = lowest calibrated per-well FG, capped by loss zones.
+  6. Calibration without LOT/FIT: losses -> upper bound (loss zones), MW drilled without
+     losses -> per-well lower bound; kicks / kill MW check PP.
+  7. Mud window per hole section: Min MW = PP High + trip margin,
+     Max static MW = weakest FG Design in open hole - surge margin - ECD allowance.
+  Outputs: Balad_PPFG_Final.png (approval: P50 / Design High / Design Low, confidence,
+  well count, MW per section), Balad_PPFG_QC_AllWells.png, Balad_OBG_QC.png, xlsx.
 
 Usage:
     python build_unified_ppfg.py <Balad_PPFG__PT.xlsx> [output_dir]
@@ -38,14 +41,23 @@ PSIM_PER_SG = PSIFT_PER_SG * FT_PER_M               # 1.4197 psi/m  per s.g.
 NU = 0.25                           # Poisson's ratio used in workbook (Eaton)
 K_EATON = NU / (1 - NU)
 NORMAL_SG = 0.465 / PSIFT_PER_SG    # normal hydrostatic 0.465 psi/ft (~1.07 sg)
-TRIP_MARGIN_SG = 0.03               # ~0.25 ppg  (swab / trip margin)
-KICK_MARGIN_SG = 0.06               # ~0.5 ppg   (surge / kick-tolerance margin)
+TRIP_MARGIN_SG = 0.03               # ~0.25 ppg  swab / trip margin  (added to PP)
+SURGE_MARGIN_SG = 0.03              # ~0.25 ppg  surge margin        (taken from FG)
+# dynamic allowance: annular-friction ECD increase per hole size (sg) - assumed, typical values
+ECD_ADD = {'26"': 0.02, '17-1/2"': 0.03, '12-1/4"': 0.04, '8-1/2"': 0.06, '6"': 0.07}
+CONF_HIGH, CONF_MED = 6, 3          # wells contributing: >=6 high, 3-5 medium, <=2 low
 RHO_SURFACE = 1.95                  # g/cc, unconsolidated surface sediments
 DZ = 10.0                           # common grid step (m)
 WELLS = [f"Balad-{i}" for i in range(1, 10)]
 
 # casing float-collar depths from the "Pressure Testing" sheet (ft) -> shoes (approx.)
 CASING = [('30"', 39.4), ('20"', 823.5), ('13-3/8"', 4183.3), ('9-5/8"', 11798.5), ('7"', 14223.1)]
+# hole sections between the casing points above (hole size, casing run, top m, base m)
+SECTIONS = [('26"', '20"', CASING[0][1] / FT_PER_M, CASING[1][1] / FT_PER_M),
+            ('17-1/2"', '13-3/8"', CASING[1][1] / FT_PER_M, CASING[2][1] / FT_PER_M),
+            ('12-1/4"', '9-5/8"', CASING[2][1] / FT_PER_M, CASING[3][1] / FT_PER_M),
+            ('8-1/2"', '7" liner', CASING[3][1] / FT_PER_M, CASING[4][1] / FT_PER_M),
+            ('6"', 'open hole to TD', CASING[4][1] / FT_PER_M, None)]
 # formation tops available in the workbook (Balad-1 sheet / 1996 study)
 FORMATION_TOPS = [("Hartha/Sa'adi", 1980.0), ("Khasib", 2325.0)]
 
@@ -139,17 +151,18 @@ def build(wells):
     grid = np.arange(0, math.ceil(zmax / DZ) * DZ + DZ, DZ)
 
     # ---- per-well PP / FG(workbook) / MW on the grid (pressure interpolated in psi)
-    pp, fg_wb, mw = {}, {}, {}
+    pp, fg_wb, ovb_wb, mw = {}, {}, {}, {}
     for n, w in wells.items():
         d = np.array([t["depth"] for t in w["tab"]])
         o = np.argsort(d, kind="stable")
         d = d[o]
         P = np.array([w["tab"][i]["pp"] for i in o], float)
         F = np.array([w["tab"][i]["fp"] for i in o], float)
+        V = np.array([w["tab"][i]["ovb"] for i in o], float)
         M = np.array([w["tab"][i]["mw"] if num(w["tab"][i]["mw"]) else np.nan for i in o])
         g = grid[(grid >= d.min()) & (grid <= d.max())]
         sel = (grid >= d.min()) & (grid <= d.max())
-        for store, arr in ((pp, P), (fg_wb, F)):
+        for store, arr in ((pp, P), (fg_wb, F), (ovb_wb, V)):
             s = np.full(grid.size, np.nan)
             s[sel] = emw(np.interp(g, d, arr), g)
             store[n] = s
@@ -188,8 +201,19 @@ def build(wells):
     pp_high = np.nanmax(PP, axis=0)
 
     # per-well Eaton FG with the field OBG
-    FGw = PP + K_EATON * (obg - PP)
+    FGe = PP + K_EATON * (obg - PP)
     fg_ml = pp_ml + K_EATON * (obg - pp_ml)
+    # calibration without LOT/FIT: a well that drilled a depth with mud weight MW and had no
+    # losses there proves FG >= MW at that depth in that well (lower bound, Daines-type use
+    # of offset drilling data).  Depths within 20 m of that well's loss events are excluded.
+    MW = np.array([mw[n] for n in WELLS])
+    noloss = np.ones_like(MW, dtype=bool)
+    for i, n in enumerate(WELLS):
+        for e in wells[n]["events"]:
+            if e["type"] == "Losses":
+                noloss[i, np.abs(grid - e["depth"]) <= 20] = False
+    lift = noloss & ~np.isnan(MW) & ~np.isnan(FGe) & (MW > FGe)
+    FGw = np.where(lift, MW, FGe)
     fg_low = np.nanmin(FGw, axis=0)
     fg_high = np.nanmax(FGw, axis=0)
 
@@ -212,12 +236,56 @@ def build(wells):
         loss_lim[m] = zn["limit"]
     fg_design = np.fmin(fg_low, loss_lim)
 
-    return dict(grid=grid, rho=rho, obg=obg, a_gardner=a_gardner, nw=nw,
-                pp=pp, fg_wb=fg_wb, mw=mw, FGw=FGw,
+    # per-depth dynamic allowance from the hole section
+    ecd = np.full(grid.size, np.nan)
+    for hole, _, top, base in SECTIONS:
+        ecd[(grid >= top) & (grid <= (base if base else grid[-1]))] = ECD_ADD[hole]
+    ecd[np.isnan(ecd)] = ECD_ADD['26"']
+    mw_min = pp_high + TRIP_MARGIN_SG
+    mw_max = fg_design - SURGE_MARGIN_SG - ecd
+    mw_max_nl = fg_low - SURGE_MARGIN_SG - ecd          # same, ignoring loss zones
+
+    # hole-section windows: max static MW must stay below the weakest point of the open hole
+    sec = []
+    for hole, csg, top, base in SECTIONS:
+        base = base if base else float(grid[np.where(nw > 0)[0][-1]])
+        m = (grid > top) & (grid <= base)
+        if not m.any():
+            continue
+        i_pp = np.nanargmax(np.where(m, pp_high, np.nan))
+        i_fg = np.nanargmin(np.where(m, fg_design, np.nan))
+        i_nl = np.nanargmin(np.where(m, fg_low, np.nan))
+        wmw = np.where(m, MW, np.nan)
+        rec = dict(hole=hole, casing=csg, top=top, base=base, ecd=ECD_ADD[hole],
+                   n_min=int(np.min(nw[m])), n_max=int(np.max(nw[m])),
+                   pp_max=pp_high[i_pp], pp_at=grid[i_pp],
+                   fg_min=fg_design[i_fg], fg_at=grid[i_fg],
+                   fg_min_nl=fg_low[i_nl], fg_nl_at=grid[i_nl],
+                   mw_lo=pp_high[i_pp] + TRIP_MARGIN_SG,
+                   mw_hi=fg_design[i_fg] - SURGE_MARGIN_SG - ECD_ADD[hole],
+                   mw_hi_nl=fg_low[i_nl] - SURGE_MARGIN_SG - ECD_ADD[hole],
+                   hist_lo=float(np.nanmin(wmw)), hist_hi=float(np.nanmax(wmw)))
+        rec["window"] = rec["mw_hi"] - rec["mw_lo"]
+        rec["window_nl"] = rec["mw_hi_nl"] - rec["mw_lo"]
+        rec["rec_mw"] = math.ceil(rec["mw_lo"] * 100) / 100
+        if rec["window"] >= 0:
+            rec["status"] = "OPEN"
+        elif rec["window_nl"] >= 0:
+            rec["status"] = "OPEN except loss zone - drill at min MW, LCM ready"
+        else:
+            rec["status"] = "CLOSED - window negative in open hole"
+        sec.append(rec)
+
+    conf = np.where(nw >= CONF_HIGH, "High", np.where(nw >= CONF_MED, "Medium", "Low"))
+
+    return dict(grid=grid, rho=rho, obg=obg, a_gardner=a_gardner, nw=nw, conf=conf,
+                rho_w=rho_w, rb_bins=rb_bins, rho_dt=rho_dt, ovb_wb=ovb_wb, lift=lift,
+                pp=pp, fg_wb=fg_wb, mw=mw, FGw=FGw, FGe=FGe, ecd=ecd, sections=sec,
+                mw_max_nl=mw_max_nl,
                 pp_low=pp_low, pp_ml=pp_ml, pp_high=pp_high,
                 fg_low=fg_low, fg_ml=fg_ml, fg_high=fg_high, loss_lim=loss_lim,
                 loss_zones=loss_zones, fg_design=fg_design,
-                mw_min=pp_high + TRIP_MARGIN_SG, mw_max=fg_design - KICK_MARGIN_SG)
+                mw_min=mw_min, mw_max=mw_max)
 
 
 def running(a, n, f):
@@ -273,7 +341,7 @@ def plot(res, wells, ebs, path_png):
     ax.plot(res["pp_high"], z, color="#1010d0", lw=1.6, ls="--", label="PP High (offset envelope) - DESIGN")
     ax.plot(res["pp_low"], z, color="#6f8fff", lw=1.1, ls=":", label="PP Low (offset envelope)")
     ax.plot(res["fg_ml"], z, color="#F2A900", lw=2.8, label="FG Most-Likely (Eaton, PP P50)")
-    ax.plot(res["fg_low"], z, color="#C00000", lw=2.3, label="FG Low (Eaton, lowest well) - DESIGN")
+    ax.plot(res["fg_low"], z, color="#C00000", lw=2.3, label="FG Low (calibrated, lowest well)")
     first = True
     for zn in res["loss_zones"]:
         ax.plot([zn["limit"]] * 2, [zn["top"], zn["base"]], color="#C00000", lw=3.2,
@@ -351,7 +419,209 @@ def plot(res, wells, ebs, path_png):
 
 
 
-def method_panel(fig, res):
+def plot_final(res, wells, path_png):
+    """Approval chart: PP P50, PP Design High, FG Design Low with confidence and well count."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.lines import Line2D
+    from matplotlib.patches import Patch
+
+    z = res["grid"]
+    nw = res["nw"].astype(float)
+    nw_s = np.where(nw > 0, nw, np.nan)
+    PP = np.array([res["pp"][n] for n in WELLS])
+    zmax = 4600
+    fig = plt.figure(figsize=(16.5, 13.5), dpi=150)
+    ax = fig.add_axes([0.1, 0.215, 0.46, 0.675])
+    tr = fig.add_axes([0.57, 0.215, 0.065, 0.675], sharey=ax)
+    ax.set_facecolor("#FFFFC8")
+    ax.set_xlim(0.6, 2.6)
+    ax.set_ylim(zmax, 0)
+    ax.xaxis.tick_top()
+    ax.xaxis.set_label_position("top")
+    ax.set_xlabel("EMW (sg)", fontsize=13, fontweight="bold", labelpad=8)
+    ax.set_ylabel("Depth (m TVD-RT = MD, vertical wells)", fontsize=12, fontweight="bold", labelpad=62)
+    ax.set_xticks(np.arange(0.6, 2.61, 0.2))
+    ax.set_yticks(np.arange(0, zmax + 1, 500))
+    ax.grid(color="#9a9a9a", lw=0.5)
+    fig.text(0.5, 0.972, "BALAD FIELD GENERIC PPFG - DESIGN CURVES", ha="center", fontsize=18,
+             fontweight="bold", color="#1f3a93")
+    fig.text(0.5, 0.955, "PP P50  |  PP Design High  |  FG Design Low   -   with offset range, "
+             "number of supporting wells and recommended mud weight per hole section",
+             ha="center", fontsize=10, color="#1f3a93")
+
+    # low-confidence depth intervals (<= 2 wells) hatched, medium (3-5 wells) labelled
+    for a, b in segments((nw < CONF_MED) & (nw > 0)):
+        ax.axhspan(z[a] - DZ / 2, z[b] + DZ / 2, facecolor="none", hatch="///",
+                   edgecolor="#c0392b", alpha=0.35, lw=0)
+    for a, b in segments((nw >= CONF_MED) & (nw < CONF_HIGH)):
+        if z[b] - z[a] > 300:
+            ax.text(2.58, z[a] + 15, f"{z[a]:.0f}-{z[b]:.0f} m: {int(nw[a:b + 1].min())}-"
+                    f"{int(nw[a:b + 1].max())} wells (medium confidence)",
+                    ha="right", va="top", fontsize=8, color="#b35900", style="italic")
+
+    # offset ranges
+    ax.fill_betweenx(z, res["pp_low"], res["pp_high"], color="#4a6cf7", alpha=0.16, lw=0)
+    ax.fill_betweenx(z, res["fg_low"], res["fg_high"], color="#e74c3c", alpha=0.12, lw=0)
+
+    ax.plot(res["obg"], z, color="#7B2A0E", lw=2.6, label="OBG (field, integrated RHOB/DT)")
+    ax.plot(np.full(z.size, NORMAL_SG), z, color="#2aa7c9", lw=1.3, ls="--",
+            label=f"Normal hydrostatic {NORMAL_SG * PSIFT_PER_SG:.3f} psi/ft (datum RT)")
+
+    def solid_dashed(arr, **kw):
+        """draw solid where >= 3 wells, dashed & faded where fewer."""
+        a_hi = np.where(nw >= CONF_MED, arr, np.nan)
+        a_lo = np.where((nw < CONF_MED) | np.roll(nw < CONF_MED, -1), arr, np.nan)
+        ax.plot(a_hi, z, **kw)
+        kw2 = dict(kw)
+        kw2.pop("label", None)
+        kw2.update(alpha=0.45, ls=(0, (3, 2)))
+        ax.plot(a_lo, z, **kw2)
+
+    solid_dashed(res["pp_ml"], color="#1010d0", lw=2.6, label="PP P50 (Most-Likely)")
+    solid_dashed(res["pp_high"], color="#000080", lw=2.4, ls=(0, (6, 2)), label="PP Design High")
+    solid_dashed(res["fg_design"], color="#C00000", lw=2.6, label="FG Design Low (calibrated)")
+
+    # recommended MW per hole section (green step) + window markers
+    for k, s_ in enumerate(res["sections"]):
+        col = "#1e8f3a" if s_["status"] == "OPEN" else ("#d68910" if "loss" in s_["status"] else "#c0392b")
+        ax.plot([s_["rec_mw"]] * 2, [s_["top"], s_["base"]], color="#1e8f3a", lw=3.2,
+                label="Recommended MW per section" if k == 0 else None, solid_capstyle="butt")
+        ax.plot([s_["mw_hi"]] * 2, [s_["top"], s_["base"]], color=col, lw=1.4, ls=(0, (1, 1.5)),
+                label="Max static MW per section" if k == 0 else None)
+        ax.text(s_["rec_mw"] + 0.015, s_["top"] + 0.5 * (s_["base"] - s_["top"]),
+                f"{s_['hole']}\nMW {s_['rec_mw']:.2f}", fontsize=7.5, color="#1e8f3a",
+                fontweight="bold", va="center",
+                bbox=dict(fc="#FFFFC8", ec="none", pad=0.4, alpha=0.8))
+
+    # calibration evidence (small)
+    for n, w in wells.items():
+        for e in w["events"]:
+            if e["type"] == "Losses" and e["mw"]:
+                ax.scatter(e["mw"], e["depth"], marker="o", s=26, c="#ff8c00", edgecolors="k", lw=0.4, zorder=6)
+            if e["type"] == "Kick" and e["mw"]:
+                ax.scatter(e["kill"] or e["mw"], e["depth"], marker="X", s=40, c="#e60000",
+                           edgecolors="k", lw=0.4, zorder=6)
+    for zn in res["loss_zones"]:
+        if zn["top"] > 100:
+            ax.axhspan(zn["top"], zn["base"], color="#ff8c00", alpha=0.08, lw=0)
+
+    def tag(arr, d, txt, col, dx=0.02):
+        i = int(d / DZ)
+        ax.text(arr[i] + dx, d, txt, fontsize=8.5, color=col, fontweight="bold",
+                bbox=dict(fc="#FFFFC8", ec="none", pad=0.5))
+    tag(res["obg"], 900, "OBG", "#7B2A0E")
+    tag(res["fg_design"], 1700, "FG Design Low", "#C00000")
+    tag(res["pp_ml"], 600, "PP P50", "#1010d0", -0.2)
+    tag(res["pp_high"], 3450, "PP Design High", "#000080", -0.33)
+
+    for name, d in FORMATION_TOPS:
+        ax.annotate(name, xy=(0.6, d), xytext=(-8, -3), textcoords="offset points",
+                    fontsize=8.5, ha="right", annotation_clip=False)
+        ax.axhline(d, color="#333", lw=0.6, ls=(0, (1, 2)))
+    for od, ft in CASING:
+        d = ft / FT_PER_M
+        ax.scatter(0.6, d, marker=">", s=90, c="k", clip_on=False, zorder=7)
+        ax.annotate(od, xy=(0.6, d), xytext=(9, -3), textcoords="offset points", fontsize=7.5)
+
+    # well-count track
+    colors = np.where(nw >= CONF_HIGH, "#27ae60", np.where(nw >= CONF_MED, "#f39c12", "#c0392b"))
+    for c in ("#27ae60", "#f39c12", "#c0392b"):
+        m = (colors == c) & (nw > 0)
+        tr.fill_betweenx(z, 0, np.where(m, nw, 0), step="mid", color=c, lw=0)
+    tr.step(nw_s, z, where="mid", color="k", lw=0.8)
+    tr.set_xlim(0, 9.5)
+    tr.set_xticks([0, 3, 6, 9])
+    tr.xaxis.tick_top()
+    tr.xaxis.set_label_position("top")
+    tr.set_xlabel("No. of wells", fontsize=9.5, fontweight="bold")
+    tr.grid(color="#bbb", lw=0.5)
+    tr.axvline(CONF_MED, color="#555", lw=0.8, ls="--")
+    tr.axvline(CONF_HIGH, color="#555", lw=0.8, ls="--")
+    plt.setp(tr.get_yticklabels(), visible=False)
+
+    handles, labels = ax.get_legend_handles_labels()
+    handles += [Patch(fc="#4a6cf7", alpha=0.3), Patch(fc="#e74c3c", alpha=0.25),
+                Patch(fc="none", ec="#c0392b", hatch="///"),
+                Line2D([], [], marker="o", ls="", mfc="#ff8c00", mec="k", ms=6),
+                Line2D([], [], marker="X", ls="", mfc="#e60000", mec="k", ms=7),
+                Line2D([], [], marker=">", ls="", color="k", ms=8),
+                Patch(fc="#27ae60"), Patch(fc="#f39c12"), Patch(fc="#c0392b")]
+    labels += ["PP range of offset wells (min-max)", "FG range of offset wells (min-max)",
+               "Low confidence (<= 2 wells), curves dashed", "Losses (MW at loss)",
+               "Kick (kill MW)", "Casing shoe (approx.)",
+               f"Wells >= {CONF_HIGH}: high confidence", f"Wells {CONF_MED}-{CONF_HIGH - 1}: medium",
+               f"Wells <= {CONF_MED - 1}: low"]
+    fig.legend(handles, labels, loc="lower center", ncol=3, fontsize=8.2, frameon=True,
+               bbox_to_anchor=(0.355, 0.035))
+    method_panel(fig, res, box=(0.665, 0.03, 0.32, 0.86))
+    fig.text(0.355, 0.008, "Figure - Balad Field generic PPFG: design curves for approval",
+             ha="center", fontsize=10, style="italic", fontweight="bold")
+    fig.savefig(path_png)
+    plt.close(fig)
+
+
+def segments(mask):
+    """contiguous True runs of a boolean array -> list of (start, end) indices."""
+    out, start = [], None
+    for i, m in enumerate(mask):
+        if m and start is None:
+            start = i
+        if not m and start is not None:
+            out.append((start, i - 1))
+            start = None
+    if start is not None:
+        out.append((start, len(mask) - 1))
+    return out
+
+
+def plot_obg_qc(res, ebs, path_png):
+    """OBG QC: composite density per well, field density trend and OBG vs references."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    z = res["grid"]
+    cmap = plt.get_cmap("tab10")
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(14, 10), dpi=140, sharey=True)
+    for i, n in enumerate(WELLS):
+        a1.plot(res["rb_bins"][i], z, ".", ms=2.2, color=cmap(i), alpha=0.7)
+        a1.plot(np.where(np.isnan(res["rb_bins"][i]), res["rho_dt"][i], np.nan), z, "x",
+                ms=2.2, color=cmap(i), alpha=0.5)
+    a1.plot(res["rho"], z, color="k", lw=2.2, label="Field composite density (median, 50 m)")
+    a1.plot([], [], ".", color="gray", label="RHOB (QC: |DRHO| <= 0.15), 10 m bins, per well")
+    a1.plot([], [], "x", color="gray", label=f"Gardner from DT (a = {res['a_gardner']:.3f}), per well")
+    a1.set_xlim(1.8, 3.0)
+    a1.set_ylim(4600, 0)
+    a1.set_xlabel("Bulk density (g/cc)", fontweight="bold")
+    a1.set_ylabel("Depth (m TVD-RT)", fontweight="bold")
+    a1.set_title("1) Density input to the overburden", fontweight="bold")
+    a1.grid(color="#ccc", lw=0.5)
+    a1.legend(fontsize=8, loc="lower left")
+
+    for i, n in enumerate(WELLS):
+        a2.plot(res["ovb_wb"][n], z, color=cmap(i), lw=0.8, alpha=0.6,
+                label="Workbook OVB per well (const. avg RHOB)" if i == 0 else None)
+    a2.plot(res["obg"], z, color="#7B2A0E", lw=2.6, label="Field OBG = integral of composite density")
+    if ebs.size:
+        a2.plot(ebs[:, 1] / PSIFT_PER_SG, ebs[:, 0], "o-", color="#8e44ad", ms=3, lw=1.2,
+                label="EBS-1996 study OBG")
+    a2.set_xlim(1.8, 3.0)
+    a2.set_xlabel("OBG EMW (sg)", fontweight="bold")
+    a2.set_title("2) Overburden gradient vs references", fontweight="bold")
+    a2.grid(color="#ccc", lw=0.5)
+    a2.legend(fontsize=8, loc="lower left")
+    d_ebs = np.interp(ebs[:, 0], z, res["obg"]) - ebs[:, 1] / PSIFT_PER_SG if ebs.size else np.array([0])
+    fig.suptitle("Balad Field - Overburden QC   (units: RHOB g/cc, DT us/ft, OBG sg;  "
+                 f"field OBG - EBS-1996: mean {np.mean(d_ebs):+.3f}, max |diff| {np.max(np.abs(d_ebs)):.3f} sg)",
+                 fontsize=12, fontweight="bold", color="#1f3a93")
+    fig.tight_layout(rect=(0, 0, 1, 0.96))
+    fig.savefig(path_png)
+    plt.close(fig)
+    return d_ebs
+
+
+def method_panel(fig, res, box=(0.665, 0.03, 0.315, 0.875)):
     """Methodology box written inside the figure (right-hand panel)."""
     import textwrap
     lz = [z for z in res["loss_zones"] if z["top"] > 100]
@@ -359,43 +629,49 @@ def method_panel(fig, res):
         ("1. Input data",
          "Final PPFG sheets of 9 offset wells (Balad-1 ... Balad-9): PP, FG, OBG, actual MW and "
          "drilling events (kicks, losses, gas-cut mud)."),
-        ("2. Normalisation",
-         "All pressures converted to EMW (sg) vs TVD-RT (m) with the workbook factors "
-         "(0.0519 psi/ft/ppg, 8.337 ppg/sg, 3.281 ft/m). Common 10 m depth grid; "
-         "interpolation done in pressure (psi) then converted to EMW."),
+        ("2. Normalisation & datum",
+         "Vertical wells: TVD = MD; all depths referenced to RT, as recorded. Pressures converted "
+         "to EMW (sg) with the workbook factors (0.0519 psi/ft/ppg, 8.337 ppg/sg, 3.281 ft/m). "
+         "Common 10 m grid; interpolation in pressure (psi), then EMW. Normal hydrostatic "
+         f"{NORMAL_SG * PSIFT_PER_SG:.3f} psi/ft ({NORMAL_SG:.2f} sg) from RT."),
         ("3. Overburden (OBG)",
          "sigma_v = g * integral(rho_b dz). rho_b from QC'd RHOB (|DRHO| <= 0.15); where RHOB is "
          f"missing, Gardner rho = {res['a_gardner']:.3f} * V^0.25 from DT (calibrated on Balad "
-         "RHOB/DT overlap); surface trend from 1.95 g/cc. Field OBG = median of the 9 wells."),
+         "RHOB/DT overlap); surface trend from 1.95 g/cc. Field OBG = median of the wells "
+         "(QC chart: separate figure)."),
         ("4. Pore pressure (PP)",
-         "Per-depth statistics of all wells: PP Low = minimum, PP P50 = median (Most-Likely), "
-         "PP High = maximum envelope -> used for DESIGN (kick, casing burst, min MW)."),
+         "Recomputed from the wells' PP at every depth: PP P50 = median (Most-Likely), "
+         "PP Design High = maximum envelope (kick, burst, min MW); shaded band = full range "
+         "of wells. Number of wells is shown in the side track; confidence High >= 6, "
+         "Medium 3-5, Low <= 2 wells."),
         ("5. Fracture gradient (FG)",
          "Eaton (1969): FG = PP + nu/(1-nu) * (OBG - PP), nu = 0.25. "
-         "FG Most-Likely = Eaton(PP P50); FG Low = lowest per-well Eaton FG."),
-        ("6. Calibration with drilling events",
-         "Loss events of all wells clustered into zones (gap < 300 m); zone limit = lowest MW "
-         "at which losses occurred"
-         + ("".join(f"; {z['top']:.0f}-{z['base']:.0f} m = {z['limit']:.2f} sg" for z in lz))
-         + ". FG DESIGN = min(FG Low, loss-zone limit). Kicks / kill MW used to check PP."),
-        ("7. Safe mud window",
-         f"Min MW = PP High + {TRIP_MARGIN_SG:.2f} sg (trip/swab margin ~0.25 ppg); "
-         f"Max MW = FG DESIGN - {KICK_MARGIN_SG:.2f} sg (kick/surge margin ~0.5 ppg). "
-         "Green band on the chart."),
+         "FG per well with the field OBG, then calibrated (step 6). FG Design Low = lowest "
+         "calibrated FG of all wells, capped by loss zones."),
+        ("6. Calibration (no LOT/FIT available - old wells)",
+         "Upper bound: loss events clustered into zones (gap < 300 m), limit = lowest MW with "
+         "losses" + ("".join(f"; {z['top']:.0f}-{z['base']:.0f} m = {z['limit']:.2f} sg" for z in lz))
+         + ". Lower bound: MW drilled without losses in a well => that well's FG >= MW "
+         "(Daines 1982 use of offset data). Kicks / kill MW check PP."),
+        ("7. Mud window per hole section",
+         f"Min MW = max PP Design High in section + {TRIP_MARGIN_SG:.2f} sg (trip/swab). "
+         f"Max static MW = weakest FG Design in open hole - {SURGE_MARGIN_SG:.2f} sg (surge) "
+         "- dynamic ECD allowance (26\" 0.02, 17-1/2\" 0.03, 12-1/4\" 0.04, 8-1/2\" 0.06, "
+         "6\" 0.07 sg, assumed). Green step = recommended MW per section."),
         ("8. Reference curves (not for design)",
          "EBS-1996 East Baghdad study: its FG uses 2nu/(1-nu) = breakdown pressure of an intact "
          "hole (Haimson & Fairhurst 1967), higher than Eaton propagation/closure FG."),
         ("Limitations",
-         "Only 3 wells below 3600 m (Ba-1/2/3) -> low confidence; overpressure top varies "
-         "3680-4000 m. No LOT/FIT/MDT in the data set - calibrate when available. "
-         "Depths are RT, not TVDSS; wells not aligned on formation tops."),
+         "Only 3 wells below 3600 m (Ba-1/2/3); overpressure top varies 3680-4000 m. "
+         "No LOT/FIT/MDT, RT elevations or full formation tops for these old wells, so no "
+         "TVDSS / stratigraphic alignment; FG relies on Eaton + drilling-event calibration. "
+         "ECD allowances are assumed, not from hydraulics."),
         ("References",
          "Eaton 1969 (SPE-2163-PA); Hubbert & Willis 1957; Haimson & Fairhurst 1967 (SPE-1710); "
          "Gardner et al. 1974 (Geophysics); Daines 1982 (SPE-9254); Bourgoyne et al. 1986, "
          "Applied Drilling Engineering Ch.6-7; Zhang 2011 (Earth-Sci. Rev.); Zoback 2007, "
          "Reservoir Geomechanics."),
     ]
-    box = [0.665, 0.03, 0.315, 0.875]
     pax = fig.add_axes(box)
     hin = box[3] * fig.get_figheight()           # panel height in inches
     lh = 8.2 * 1.38 / 72 / hin                   # one body line in axes fraction
@@ -427,7 +703,7 @@ def plt_rect(x, y, w, h, color):
 
 
 # ----------------------------------------------------------------- export
-def export_xlsx(res, wells, ebs, path, png):
+def export_xlsx(res, wells, ebs, path, pngs, d_ebs):
     import xlsxwriter
     wb = xlsxwriter.Workbook(path)
     H = wb.add_format(dict(bold=True, bg_color="#1F3A93", font_color="white", border=1,
@@ -439,6 +715,8 @@ def export_xlsx(res, wells, ebs, path, png):
     TXT = wb.add_format(dict(text_wrap=True, valign="top"))
     RTL = wb.add_format(dict(text_wrap=True, valign="top", reading_order=2, align="right"))
     TTL = wb.add_format(dict(bold=True, font_size=14, font_color="#1F3A93"))
+    CONF = {k: wb.add_format(dict(border=1, align="center", bg_color=c)) for k, c in
+            (("High", "#C6EFCE"), ("Medium", "#FFEB9C"), ("Low", "#FFC7CE"))}
     RTT = wb.add_format(dict(bold=True, font_size=13, font_color="#1F3A93", reading_order=2, align="right"))
 
     z = res["grid"]
@@ -449,23 +727,25 @@ def export_xlsx(res, wells, ebs, path, png):
     ws.write(0, 0, "Balad Field - Unified PPFG (EMW, s.g.)  |  10 m grid  |  depth = TVD-RT", TTL)
     hdr = ["Depth (m)", "Depth (ft)", "No. of wells", "OBG", "PP Low", "PP P50 (ML)",
            "PP High\n(DESIGN)", "FG DESIGN\nmin(FG Low, loss)", "FG ML (Eaton)", "FG High",
-           "Min MW\n(PP High+0.03)", "Max MW\n(FG des.-0.06)", "Window\n(Max-Min)",
-           "FG Low\n(Eaton)", "Loss-zone\nlimit"]
+           "Min MW\n(PP High+trip)", "Max static MW\n(FG des.-surge-ECD)", "Window\n(Max-Min)",
+           "FG Low\n(calibrated)", "Loss-zone\nlimit", "ECD allow.\n(section)", "Confidence"]
     ws.write_row(2, 0, hdr, H)
     ws.set_row(2, 42)
-    ws.set_column(0, 14, 12.5)
+    ws.set_column(0, 16, 12.5)
     for k, i in enumerate(rows):
         r = 3 + k
         vals = [z[i], z[i] * FT_PER_M, int(res["nw"][i]), res["obg"][i], res["pp_low"][i],
                 res["pp_ml"][i], res["pp_high"][i], res["fg_design"][i], res["fg_ml"][i],
                 res["fg_high"][i], res["mw_min"][i], res["mw_max"][i],
-                res["mw_max"][i] - res["mw_min"][i], res["fg_low"][i], res["loss_lim"][i]]
+                res["mw_max"][i] - res["mw_min"][i], res["fg_low"][i], res["loss_lim"][i],
+                res["ecd"][i]]
         for c, v in enumerate(vals):
             f = N0 if c < 3 else (DES if c in (6, 7) else N3)
             if isinstance(v, float) and np.isnan(v):
                 ws.write_blank(r, c, None, f)
             else:
                 ws.write_number(r, c, float(v), f)
+        ws.write(r, len(vals), str(res["conf"][i]), CONF[str(res["conf"][i])])
     ws.freeze_panes(3, 1)
     last = 3 + len(rows) - 1
 
@@ -485,7 +765,57 @@ def export_xlsx(res, wells, ebs, path, png):
     ch.set_plotarea(dict(fill=dict(color="#FFFFC8")))
     ch.set_legend(dict(position="bottom"))
     ch.set_size(dict(width=620, height=820))
-    ws.insert_chart("Q3", ch)
+    ws.insert_chart("S3", ch)
+
+    # 1b) hole-section mud window
+    ws = wb.add_worksheet("Hole-section window")
+    ws.write(0, 0, "Mud-weight window per hole section (EMW sg) - static MW limits after trip, surge and "
+                   "dynamic (ECD) allowances", TTL)
+    ws.write(1, 0, f"Trip margin {TRIP_MARGIN_SG} sg | surge margin {SURGE_MARGIN_SG} sg | ECD allowance "
+                   "per hole size is an assumption - replace with hydraulics (ECD) results when available.", TXT)
+    hdr = ["Hole", "Casing", "Top (m)", "Base (m)", "Wells (min-max)", "Max PP Design High",
+           "at (m)", "Min FG Design", "at (m)", "ECD allow.", "Min MW", "Max static MW", "Window",
+           "Min FG excl. loss zones", "Max MW excl. loss zones", "Window excl. loss zones",
+           "Recommended MW", "MW used in wells (min-max)", "Status"]
+    ws.write_row(3, 0, hdr, H)
+    ws.set_row(3, 45)
+    ws.set_column(0, 17, 11.5)
+    ws.set_column(18, 18, 55)
+    for k, x in enumerate(res["sections"]):
+        r = 4 + k
+        ws.write(r, 0, x["hole"])
+        ws.write(r, 1, x["casing"])
+        ws.write_number(r, 2, round(x["top"]), N0)
+        ws.write_number(r, 3, round(x["base"]), N0)
+        ws.write(r, 4, f'{x["n_min"]}-{x["n_max"]}')
+        for c, key in ((5, "pp_max"), (6, "pp_at"), (7, "fg_min"), (8, "fg_at"), (9, "ecd"),
+                       (10, "mw_lo"), (11, "mw_hi"), (12, "window"), (13, "fg_min_nl"),
+                       (14, "mw_hi_nl"), (15, "window_nl"), (16, "rec_mw")):
+            ws.write_number(r, c, float(x[key]), N0 if c in (6, 8) else (DES if c == 16 else N2))
+        ws.write(r, 17, f'{x["hist_lo"]:.2f} - {x["hist_hi"]:.2f}')
+        ws.write(r, 18, x["status"])
+
+    # 1c) OBG QC
+    ws = wb.add_worksheet("OBG QC")
+    ws.write(0, 0, "Overburden QC - composite density and OBG vs EBS-1996 and workbook OVB", TTL)
+    ws.write(1, 0, f"Gardner a = {res['a_gardner']:.4f} (textbook 0.23).  Field OBG - EBS-1996: mean "
+                   f"{np.mean(d_ebs):+.3f} sg, max |diff| {np.max(np.abs(d_ebs)):.3f} sg", TXT)
+    hdr = ["Depth (m)", "Composite density (g/cc)", "Field OBG (sg)", "EBS-1996 OBG (sg)",
+           "Workbook OVB min (sg)", "Workbook OVB max (sg)"]
+    ws.write_row(3, 0, hdr, H)
+    ws.set_row(3, 32)
+    ws.set_column(0, 5, 15)
+    OV = np.array([res["ovb_wb"][n] for n in WELLS])
+    k = 0
+    for i in rows:
+        if z[i] % 100:
+            continue
+        e = np.interp(z[i], ebs[:, 0], ebs[:, 1] / PSIFT_PER_SG, left=np.nan, right=np.nan)
+        vals = [z[i], res["rho"][i], res["obg"][i], e, np.nanmin(OV[:, i]), np.nanmax(OV[:, i])]
+        for c, v in enumerate(vals):
+            if not np.isnan(v):
+                ws.write_number(4 + k, c, float(v), N0 if c == 0 else N3)
+        k += 1
 
     # 2) Landmark / StressCheck style (ft, ppg, psi)
     ws = wb.add_worksheet("Design (ppg-psi)")
@@ -564,9 +894,10 @@ def export_xlsx(res, wells, ebs, path, png):
             ws.write(r, 9, e["note"])
             r += 1
 
-    # 6) chart image
-    ws = wb.add_worksheet("Chart")
-    ws.insert_image("B2", png, dict(x_scale=0.55, y_scale=0.55))
+    # 6) chart images
+    for title, png in pngs:
+        ws = wb.add_worksheet(title)
+        ws.insert_image("B2", png, dict(x_scale=0.5, y_scale=0.5))
 
     # 7) method & references
     ws = wb.add_worksheet("Method & References")
@@ -590,20 +921,22 @@ def export_xlsx(res, wells, ebs, path, png):
 
 METHOD_AR = """
 ■ منهجية توحيد الـ PPFG لحقل بلد (Field-Generic PPFG)
-1) توحيد الوحدات والمرجع: كل الضغوط حُوّلت إلى EMW (s.g.) مقابل العمق TVD-RT (m) بنفس معاملات الملف (0.0519 psi/ft/ppg ، 8.337 ppg/sg ، 3.281 ft/m).
+1) المرجع والوحدات: الآبار عمودية (TVD = MD) والأعماق مرجعها RT كما هي مسجلة. كل الضغوط حُوّلت إلى EMW (s.g.) بنفس معاملات الملف (0.0519 psi/ft/ppg ، 8.337 ppg/sg ، 3.281 ft/m). خط الهيدروستاتيك الطبيعي 0.465 psi/ft (1.07 sg) من الـ RT.
 2) شبكة عمق موحّدة كل 10 م، والاستيفاء يتم على الضغط (psi) ثم يُحوّل إلى EMW حتى لا تتشوّه القفزات عند الـ kicks.
-3) الـ Overburden: تكامل الكثافة σv = g∫ρb dz من سجلات RHOB بعد الـ QC (|DRHO| ≤ 0.15)، وحيث لا يوجد RHOB تُحسب الكثافة من DT بمعادلة Gardner (معايرة على مناطق التداخل)، وفوق أول قراءة يُستخدم اتجاه سطحي يبدأ من 1.95 g/cc. الوسيط (median) للآبار التسعة = OBG الحقل.
-   ملاحظة: الملف الحالي يحسب OVB = كثافة ثابتة × العمق (≈ 2.35–2.54 sg من السطح)، وهذا يبالغ بالـ OBG والـ FG في المقاطع الضحلة (مثلاً عند شوز 20" و 13-3/8")، لذلك تم استبداله بالتكامل.
-4) ضغط المسام: لكل عمق تُحسب إحصائيات الآبار المتوفرة: PP Low (أدنى قيمة) ، PP P50 (الوسيط = Most Likely) ، PP High (أعلى قيمة = غلاف الآبار المجاورة) ← يُعتمد PP High للتصميم (Kick / Casing / Burst).
-5) ضغط التشقق: معادلة Eaton (1969): FG = PP + ν/(1−ν)·(OBG − PP) و ν = 0.25 (نفس قيمة الملف). تُحسب لكل بئر بالـ OBG الموحّد، ثم:
-   • FG Most Likely = Eaton(PP P50)
-   • FG Low = أدنى FG (Eaton) بين الآبار عند كل عمق.
-   • Loss-zone limit: أحداث الـ losses لكل الآبار تُجمَّع إلى مناطق (فرق عمق < 300 م)، وحدّ المنطقة = أقل وزن طين حصلت عنده losses.
-   • FG DESIGN = الأقل بين (FG Low ، Loss-zone limit) = معايرة بالأحداث الفعلية.
-   ملاحظة: دراسة EBS-1996 تستخدم 2ν/(1−ν) وهذا يعطي ضغط الانهيار (Breakdown) لبئر سليم (Haimson & Fairhurst 1967) وهو أعلى من ضغط انتشار/غلق الشق، لذلك لا يُعتمد للتصميم ويُعرض كمرجع فقط.
-6) المعايرة والتحقق (QC): الـ kicks تعطي حداً أدنى لـ PP (وزن الطين وقت الـ kick) وحداً أعلى تقريبياً (وزن الـ kill)، والـ losses تعطي حداً أعلى لـ FG. أي LOT/FIT أو MDT/RFT متوفر يجب إضافته كنقاط معايرة (أولوية أعلى من أي معادلة).
-7) حدود وزن الطين: Min MW = PP High + 0.03 sg (≈0.25 ppg Trip margin) ، Max MW = FG DESIGN − 0.06 sg (≈0.5 ppg Kick/Surge margin). المنطقة الخضراء بالرسم = النافذة الآمنة.
-8) تحفظات: تحت 3600 م توجد 3 آبار فقط (Ba-1/2/3) → ثقة أقل. الأعماق مأخوذة كما هي (RT)؛ إذا اختلف ارتفاع الـ RT بين الآبار بشكل كبير يجب التحويل إلى TVDSS، والأفضل محاذاة الآبار على قمم التكوينات (Formation tops).
+3) الـ Overburden: تكامل الكثافة σv = g∫ρb dz من سجلات RHOB بعد الـ QC (|DRHO| ≤ 0.15)، وحيث لا يوجد RHOB تُحسب الكثافة من DT بمعادلة Gardner (معايرة على مناطق التداخل)، وفوق أول قراءة اتجاه سطحي يبدأ من 1.95 g/cc. الوسيط (median) للآبار = OBG الحقل. التحقق في شيت OBG QC ورسم Balad_OBG_QC.png (الفرق مع دراسة EBS-1996 بالمتوسط −0.02 sg).
+   ملاحظة: الملف الأصلي يحسب OVB من كثافة نقطية/ثابتة × العمق فتطلع قيم متذبذبة (1.95–2.93 sg)، لذلك استُبدل بالتكامل.
+4) ضغط المسام: يُعاد حسابه من PP الآبار عند كل عمق: PP P50 (الوسيط) ، PP Design High (أعلى قيمة = غلاف الآبار) ، ومدى الآبار (min–max) كمنطقة مظللة. عدد الآبار المساهمة يظهر بعمود جانبي في الرسم وبعمود في الجدول: High ≥ 6 آبار ، Medium 3–5 ، Low ≤ 2 (المنحنيات متقطعة).
+5) ضغط التشقق: Eaton (1969): FG = PP + ν/(1−ν)·(OBG − PP) و ν = 0.25 لكل بئر بالـ OBG الموحّد.
+6) المعايرة (بدون LOT/FIT لأن الآبار قديمة):
+   • حد أعلى: أحداث الـ losses تُجمَّع إلى مناطق (فرق عمق < 300 م)، وحدّ المنطقة = أقل وزن طين حصلت عنده losses.
+   • حد أدنى: البئر اللي انحفر عند عمق معيّن بوزن طين MW بدون losses ← FG لذلك البئر عند ذلك العمق ≥ MW (أسلوب Daines 1982 في استخدام بيانات الآبار المجاورة).
+   • FG Design Low = أقل FG معاير بين الآبار، ومحدود بمناطق الـ losses. الـ kicks وأوزان الـ kill للتحقق من الـ PP.
+   • دراسة EBS-1996 تستخدم 2ν/(1−ν) = ضغط الانهيار (Breakdown) لبئر سليم (Haimson & Fairhurst 1967)، فتُعرض كمرجع فقط.
+7) نافذة الطين لكل مقطع حفر (شيت Hole-section window):
+   • Min MW = أعلى PP Design High بالمقطع + 0.03 sg (هامش trip/swab).
+   • Max static MW = أضعف FG Design بالـ open hole − 0.03 sg (surge) − زيادة ECD الديناميكية حسب حجم الحفرة (26" 0.02 ، 17-1/2" 0.03 ، 12-1/4" 0.04 ، 8-1/2" 0.06 ، 6" 0.07 sg — قيم مفترضة تُستبدل بنتائج الهيدروليك).
+   • أعماق المقاطع من أعماق الكيسنك بشيت Pressure Testing.
+8) تحفظات: تحت 3600 م توجد 3 آبار فقط وقمة الضغط العالي تتغير 3680–4000 م. لا توجد LOT/FIT/MDT ولا ارتفاعات RT ولا قمم تكوينات كاملة، لذلك لا يوجد تحويل TVDSS ولا مطابقة طبقية؛ الـ FG مبني على Eaton + معايرة بأحداث الحفر.
 """
 
 REFERENCES = [
@@ -630,14 +963,20 @@ def main():
     os.makedirs(out, exist_ok=True)
     wells, ebs = read_workbook(src)
     res = build(wells)
-    png = os.path.join(out, "Balad_Field_Generic_PPFG.png")
-    plot(res, wells, ebs, png)
-    export_xlsx(res, wells, ebs, os.path.join(out, "Balad_Unified_PPFG.xlsx"), png)
+    pngs = [("Chart - Final (approval)", os.path.join(out, "Balad_PPFG_Final.png")),
+            ("Chart - QC all wells", os.path.join(out, "Balad_PPFG_QC_AllWells.png")),
+            ("Chart - OBG QC", os.path.join(out, "Balad_OBG_QC.png"))]
+    plot_final(res, wells, pngs[0][1])
+    plot(res, wells, ebs, pngs[1][1])
+    d_ebs = plot_obg_qc(res, ebs, pngs[2][1])
+    export_xlsx(res, wells, ebs, os.path.join(out, "Balad_Unified_PPFG.xlsx"), pngs, d_ebs)
 
     z = res["grid"]
     print(f"Gardner a = {res['a_gardner']:.4f}")
     for zn in res["loss_zones"]:
         print("loss zone", zn)
+    for x in res["sections"]:
+        print({k: (round(v, 3) if isinstance(v, float) else v) for k, v in x.items()})
     print(" depth  n   OBG   PPlow  PP50  PPhigh  FGdes  FGml   MWmin  MWmax")
     for d in [100, 250, 500, 1000, 1275, 1500, 2000, 2325, 2600, 2800, 3000, 3150, 3300, 3600, 3800, 3900, 4000, 4100, 4200, 4300, 4400]:
         i = int(d / DZ)
