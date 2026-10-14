@@ -739,6 +739,15 @@ table.pgrid tr:hover td{background:var(--ws-hover);}
 .pbtn:hover{background:var(--ws-hover);}
 .pbtn.pri{background:var(--ws-accent);border-color:var(--ws-accent);color:#fff;}
 .pbtn.pri:hover{background:var(--ws-accent2);}
+.pchk{display:flex;align-items:center;gap:6px;padding:6px 8px 2px;font-size:11.5px;color:var(--ws-text);cursor:pointer;}
+.pchk input{accent-color:var(--ws-accent);}
+table.cutgrid{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:2px;}
+table.cutgrid th{font-weight:600;color:var(--ws-text2);text-align:left;padding:3px 8px;border-bottom:1px solid var(--ws-border-soft);background:transparent;position:static;}
+table.cutgrid td{padding:2px 4px 2px 8px;border-bottom:1px solid var(--ws-border-soft);white-space:nowrap;font-family:var(--ws-font);}
+table.cutgrid td i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:-1px;}
+table.cutgrid td small{color:var(--ws-text3);font-size:9.5px;}
+table.cutgrid input{width:100%;height:21px;border:1px solid var(--ws-border);background:var(--ws-input-bg);color:var(--ws-text);font-size:11px;padding:0 4px;border-radius:2px;font-family:var(--ws-mono);}
+table.cutgrid.off{opacity:.45;}
 .prop-note{padding:4px 8px;color:var(--ws-text3);font-size:10.5px;line-height:1.45;}
 .kpi-row{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:6px 8px;}
 .kpi{border:1px solid var(--ws-border-soft);border-radius:3px;padding:5px 7px;background:var(--ws-doc-bg);}
@@ -1849,6 +1858,28 @@ table.pgrid tr:hover td{background:var(--ws-hover);}
           <div class="prop-actions"><button class="pbtn pri" onclick="APP.applyCalibration()">Apply &amp; recompute</button><button class="pbtn" onclick="APP.chartCalibration()">Chart by OD</button><button class="pbtn" onclick="APP.resetCalibration()">Auto</button></div>
           <div class="prop-note" id="calNotes"></div>
         </div></div>
+        <div class="prop-sec" id="psCuts"><div class="prop-h" onclick="APP.toggleSec(this)"><span class="pw">&#9660;</span>Classification cutoffs</div><div class="prop-b">
+          <label class="pchk"><input type="checkbox" id="cutOn" onchange="APP.cutToggle()"> Use my own cutoffs</label>
+          <table class="pgrid"><tr><td class="k">Cutoffs in</td><td class="v"><select id="cutUnit" onchange="APP.cutUnitChange()"><option value="mV">CBL amplitude (mV)</option><option value="BI">Bond Index (%)</option></select></td></tr></table>
+          <table class="cutgrid" id="cutGrid">
+            <tr><th>Class</th><th>From</th><th>To</th></tr>
+            <tr><td><i style="background:#1a9850"></i>Good</td><td><input id="cutLo_EXCELLENT" type="number" step="any"></td><td><input id="cutHi_EXCELLENT" type="number" step="any"></td></tr>
+            <tr><td><i style="background:#f0b429"></i>Intermediate</td><td><input id="cutLo_MEDIUM" type="number" step="any"></td><td><input id="cutHi_MEDIUM" type="number" step="any"></td></tr>
+            <tr><td><i style="background:#fc8d59"></i>Poor <small>(optional)</small></td><td><input id="cutLo_POOR" type="number" step="any"></td><td><input id="cutHi_POOR" type="number" step="any"></td></tr>
+            <tr><td><i style="background:#d73027"></i>Free pipe</td><td><input id="cutLo_FREE_PIPE" type="number" step="any"></td><td><input id="cutHi_FREE_PIPE" type="number" step="any"></td></tr>
+          </table>
+          <div class="prop-actions"><button class="pbtn pri" onclick="APP.applyCuts()">Apply &amp; recompute</button><button class="pbtn" onclick="APP.fillCutsFromCal()">Fill from calibration</button></div>
+          <div class="prop-note" id="cutNote">Leave a row empty to drop that class (e.g. Good / Intermediate / Free only). Ranges are from &le; value &lt; to.</div>
+        </div></div>
+        <div class="prop-sec" id="psVdl"><div class="prop-h" onclick="APP.toggleSec(this)"><span class="pw">&#9660;</span>VDL source</div><div class="prop-b">
+          <table class="pgrid">
+            <tr><td class="k">Waveform curves</td><td class="v"><select id="vdlSrc"><option value="auto">Automatic</option></select></td></tr>
+            <tr><td class="k">Start time (&micro;s)</td><td class="v"><input id="vdlT0" type="number" step="10" value="200"></td></tr>
+            <tr><td class="k">End time (&micro;s)</td><td class="v"><input id="vdlT1" type="number" step="10" value="1200"></td></tr>
+          </table>
+          <div class="prop-actions"><button class="pbtn pri" onclick="APP.applyVdl()">Apply</button></div>
+          <div class="prop-note" id="vdlNote">Load a file to list its array curves.</div>
+        </div></div>
         <div class="prop-sec" id="psRes"><div class="prop-h" onclick="APP.toggleSec(this)"><span class="pw">&#9660;</span>Results</div><div class="prop-b"><div class="kpi-row" id="kpiRow"><div class="kpi"><div class="kl">Status</div><div class="kv" style="font-size:12px">No data</div></div></div></div></div>
         <div class="prop-sec" id="psWell"><div class="prop-h" onclick="APP.toggleSec(this)"><span class="pw">&#9660;</span>Well header</div><div class="prop-b"><table class="pgrid" id="pgWell"><tr><td class="k">Well</td><td class="v">—</td></tr></table></div></div>
         <div class="prop-sec" id="psSel"><div class="prop-h" onclick="APP.toggleSec(this)"><span class="pw">&#9660;</span>Selection</div><div class="prop-b"><table class="pgrid" id="pgSel"><tr><td class="k">—</td><td class="v">Select a curve or zone in the Project browser</td></tr></table></div></div>
@@ -1973,6 +2004,13 @@ const CBL_CLS = {
 };
 // Re-label the classes with the mV boundaries of the CURRENT calibration.
 function refreshCblClassLabels(){
+  if(CUTS.enabled){
+    const u=CUTS.unit==='BI'?' %':' mV', f=v=>(+v).toFixed(Math.abs(v)>=20||Number.isInteger(+v)?0:1);
+    for(const k of CUT_ORDER){ const r=CUTS.rows[k];
+      const top=CUTS.unit==='BI'?100:999;
+      CBL_CLS[k].label = CUT_NAMES[k]+' '+(!cutRowOk(r) ? '(off)' : r[1]>=top ? '≥'+f(r[0])+u : r[0]<=0 ? '<'+f(r[1])+u : f(r[0])+'–'+f(r[1])+u); }
+    FREE_PIPE_REF=CAL.freePipe; BONDED_REF=CAL.bonded; return;
+  }
   const e=mvAtBI(BI_EXC), m=mvAtBI(BI_MED), f=mvAtBI(BI_FREE);
   const r=v=>v>=20?v.toFixed(0):v.toFixed(1);
   CBL_CLS.EXCELLENT.label='EXCELLENT ≤'+r(e)+' mV';
@@ -1980,6 +2018,38 @@ function refreshCblClassLabels(){
   CBL_CLS.POOR.label     ='POOR '+r(m)+'–'+r(f)+' mV';
   CBL_CLS.FREE_PIPE.label='FREE PIPE >'+r(f)+' mV';
   FREE_PIPE_REF=CAL.freePipe; BONDED_REF=CAL.bonded;
+}
+// ── User-defined class cutoffs (Properties → Classification cutoffs) ───────
+// When enabled, each CBL class takes the range the user typed, either in CBL
+// amplitude (mV, low = good) or in Bond Index % (high = good). Ranges are
+// half-open [from, to); a value outside every range goes to the nearest one.
+const CUT_ORDER=['EXCELLENT','MEDIUM','POOR','FREE_PIPE'];
+const CUT_NAMES={EXCELLENT:'GOOD',MEDIUM:'INTERMEDIATE',POOR:'POOR',FREE_PIPE:'FREE PIPE'};
+const CUTS={enabled:false, unit:'mV', rows:{EXCELLENT:[0,10],MEDIUM:[10,30],POOR:[30,66],FREE_PIPE:[66,1000]}};
+try{ const c=JSON.parse(localStorage.getItem('cblvdl_cuts')||'null'); if(c&&c.rows){ CUTS.enabled=!!c.enabled; CUTS.unit=c.unit==='BI'?'BI':'mV'; for(const k of CUT_ORDER) if(Array.isArray(c.rows[k])) CUTS.rows[k]=c.rows[k]; } }catch(e){}
+function saveCuts(){ try{ localStorage.setItem('cblvdl_cuts',JSON.stringify(CUTS)); }catch(e){} }
+function cutRowOk(r){ return Array.isArray(r)&&isFinite(r[0])&&isFinite(r[1])&&r[1]>r[0]; }
+function classifyByCuts(cbl, bi){
+  const v = CUTS.unit==='BI' ? bi*100 : cbl;
+  let best=null, bestD=Infinity;
+  for(const k of CUT_ORDER){
+    const r=CUTS.rows[k]; if(!cutRowOk(r)) continue;
+    if(v>=r[0] && v<r[1]) return k;
+    const d = v<r[0] ? r[0]-v : v-r[1];
+    if(d<bestD){ bestD=d; best=k; }
+  }
+  return best||'POOR';
+}
+// Boundaries expressed in mV for text that is written in mV (methods panel).
+function cutBoundaryMv(k){
+  const r=CUTS.rows[k]; if(!cutRowOk(r)) return null;
+  return CUTS.unit==='BI' ? mvAtBI(r[0]/100) : r[1];
+}
+function defaultCutRows(unit){
+  const r=x=>+x.toFixed(unit==='BI'?0:1);
+  return unit==='BI'
+    ? {EXCELLENT:[r(BI_EXC*100),100],MEDIUM:[r(BI_MED*100),r(BI_EXC*100)],POOR:[r(BI_FREE*100),r(BI_MED*100)],FREE_PIPE:[0,r(BI_FREE*100)]}
+    : {EXCELLENT:[0,r(mvAtBI(BI_EXC))],MEDIUM:[r(mvAtBI(BI_EXC)),r(mvAtBI(BI_MED))],POOR:[r(mvAtBI(BI_MED)),r(mvAtBI(BI_FREE))],FREE_PIPE:[r(mvAtBI(BI_FREE)),1000]};
 }
 
 // ── Vendor configuration ─────────────────────────────────────────────────────
@@ -2066,7 +2136,7 @@ function toggleTheme(){
 
 let allData=[],wellMeta={},curveMeta=[],vdlCurveNames=[],hasVDL=false,fileName='',tocResult=null;
 let detectedVendor='Unknown',curveMapping=null,isWFT_BI=false,bakerNormalized=false;
-let lastParsed=null, depthUnitFile='m', paramMeta={}, parseNotes=[];
+let lastParsed=null, depthUnitFile='m', paramMeta={}, parseNotes=[], LAST_LAS_TEXT=null;
 // ── Depth display unit (data are always held in metres internally) ──
 let DISPLAY_DU='m';
 function toDU(m){ return DISPLAY_DU==='ft' ? m/0.3048 : m; }
@@ -2179,6 +2249,7 @@ function downsampleLAS(text, targetRows){
 }
 
 function processLASText(text, note){
+  LAST_LAS_TEXT=text;
   fakeProgress(()=>{
     try{
       const res=parseLAS(text);
@@ -2200,7 +2271,7 @@ function showToast(msg){
 }
 
 function processFile(f){
-  fileName=f.name;
+  fileName=f.name; VDL_FORCE=null;
   const lower=f.name.toLowerCase();
 
   // ── DLIS (binary) branch ───────────────────────────────────────────────
@@ -2435,26 +2506,57 @@ function detectVendor(wellMeta, curveMeta) {
 }
 
 // ── Curve-family helpers ─────────────────────────────────────────────────────
-// Bracketed arrays, e.g. VDL[0]..VDL[239] (time samples) or AMMP[0]..AMMP[71]
-// (azimuthal sectors). Returns {BASE:[meta sorted by index]}.
+// Array curves arrive under many naming styles depending on the exporter:
+//   VDL[0]..VDL[239] · VDL(1).. · VDL{1}.. · VDL_1.. · VDL-1.. · VDL:1.. · VDL1..
+// curveFamilies() groups them; each family is {key,base,style,n,cols,label}.
+const FAM_STYLES=[[/^(.+?)\[(\d+)\]$/,'[]'],[/^(.+?)\((\d+)\)$/,'()'],[/^(.+?)\{(\d+)\}$/,'{}'],[/^(.+?)[_:\-](\d+)$/,'_'],[/^(.*?[A-Z])(\d+)$/i,'#']];
+function curveFamilies(meta){
+  const map={};
+  for(const m of meta){
+    if(m.i===0) continue;                                  // depth column
+    for(const [re,st] of FAM_STYLES){
+      const r=re.exec(m.name); if(!r) continue;
+      const base=r[1].toUpperCase(), key=base+'|'+st;
+      (map[key]=map[key]||{key,base,style:st,cols:[]}).cols.push(Object.assign({},m,{k:+r[2]}));
+      break;
+    }
+  }
+  const out=[];
+  for(const k in map){
+    const f=map[k]; if(f.cols.length<2) continue;
+    f.cols.sort((x,y)=>x.k-y.k); f.n=f.cols.length;
+    f.label = f.style==='[]'? f.base+'[0..'+(f.n-1)+']' : f.cols[0].name+'..'+f.cols[f.n-1].name;
+    out.push(f);
+  }
+  return out.sort((a,b)=>b.n-a.n);
+}
+// legacy view: largest family per base name ({BASE:[cols]})
 function arrayFamilies(meta){
   const fam={};
-  for(const m of meta){
-    const r=/^(.+?)\[(\d+)\]$/.exec(m.name);
-    if(r){const b=r[1].toUpperCase();(fam[b]=fam[b]||[]).push(Object.assign({},m,{k:+r[2]}));}
-  }
-  for(const b in fam) fam[b].sort((x,y)=>x.k-y.k);
+  for(const f of curveFamilies(meta)) if(!fam[f.base]||fam[f.base].length<f.n) fam[f.base]=f.cols;
   return fam;
 }
 function numberedFamily(meta, re){
   return meta.filter(m=>re.test(m.name))
     .sort((a,b)=>(parseInt(a.name.replace(/\D/g,''))||0)-(parseInt(b.name.replace(/\D/g,''))||0));
 }
-// Time-domain waveform arrays (VDL / full-wave). Azimuthal maps and impedance
-// arrays are excluded — they are NOT time series and must never be read as VDL.
-const WAVE_ARRAY_RE  = /^(VDL|VDLW|VDLA|WF\d*|WFM\d*|WAVE|WAV|FWF|WMSG|SWF|CBLWF|WV|WF5|VDL5)$/i;
-const NOT_WAVE_RE    = /^(AMMP|IMMP|ATC|TTMP|M\d?TT|AMSG|CMAP|IMAP|THMP|RBMP|AMP|SAMP|ZMAP|RAD)/i;
-const WAVE_NUM_RE    = /^(VDL|WF|WAV)[_\-]?\d+$/i;            // VDL1..VDL240 style
+// Family classification by name. Time-domain waveforms (VDL / full wave) are kept
+// apart from azimuthal sector maps, impedance maps and transit times.
+const WAVE_KW_RE   = /^(VDL|VD|WF|WFM|WFDL|WAVE|WAV|WAVEFORM|FWF|WMSG|SWF|CBLWF|CBLW|WV|RW|RXW|TWF|MSG|SONW|WAVF|VDLC|VDLA|VDLW)/i;
+const SECTOR_KW_RE = /^(AMMP|ATC|AMP|AM|SA|SEG|NM|SBA|CMAP|RBMP|AMSG|SAMP|RB|AZ|SECT)/i;
+const IMP_KW_RE    = /^(IMMP|IMAP|ZMAP|THMP|AIMP|AI)/i;
+const TT_KW_RE     = /^(TT|M\d?TT|TTMP|CE_TT|CE_DTT|DTT|TTS)/i;
+function familyKind(f){
+  const b=f.base;
+  if(WAVE_KW_RE.test(b) && !/^(AMP|AM)/i.test(b)) return 'wave';
+  if(IMP_KW_RE.test(b)) return 'imp';
+  if(TT_KW_RE.test(b)) return 'tt';
+  if(/^(AMMP|ATC|CMAP|RBMP|AMSG|SAMP|RB|AZ|SECT)/i.test(b)) return 'sector';   // known azimuthal maps
+  if(SECTOR_KW_RE.test(b)) return f.n>=48 ? 'wave?' : 'sector';
+  return f.n>=24 ? 'wave?' : 'other';
+}
+// User override from Properties → "VDL source": null = automatic, 'none', or a family key.
+let VDL_FORCE=null;
 const SECTOR_NUM_RE  = /^(AMP|AM|SA|SEG|NM|SBA)\d+[A-Z]?$/i;   // AMP1..AMP8 style
 
 // ── Vendor-specific curve mapping ───────────────────────────────────────────
@@ -2471,18 +2573,23 @@ function mapCurves(vendor, curveMeta) {
     }
     return null;
   };
+  const FAMS = curveFamilies(meta);
   const fam = arrayFamilies(meta);
-  // pick the largest waveform family
+  // Pick the VDL waveform family: explicit user choice first, then the largest
+  // waveform-named family (≥8 samples); unnamed large arrays only when not strict.
   const pickWave = (strict) => {
+    if(VDL_FORCE==='none') return null;
+    if(VDL_FORCE){ const f=FAMS.find(x=>x.key===VDL_FORCE); if(f) return {cols:f.cols, name:f.label+' (selected)'}; }
     let best=null;
-    for(const b in fam){
-      const ok = WAVE_ARRAY_RE.test(b) || (!strict && !NOT_WAVE_RE.test(b));
-      if(ok && fam[b].length>=16 && (!best || fam[b].length>fam[best].length)) best=b;
+    for(const f of FAMS){
+      if(f.n<8) continue;
+      const k=familyKind(f);
+      // un-named large arrays: always for unknown vendors, otherwise only ≥32 samples
+      if(k!=='wave' && !(k==='wave?' && (!strict || f.n>=32))) continue;
+      const score=(k==='wave'?1e6:0)+f.n;
+      if(!best||score>best.score) best={f,score,assumed:k!=='wave'};
     }
-    if(best) return {cols:fam[best], name:best+'[0..'+(fam[best].length-1)+']'};
-    const num=numberedFamily(meta, WAVE_NUM_RE);
-    if(num.length>=16) return {cols:num, name:num[0].name+'..'+num[num.length-1].name};
-    return null;
+    return best?{cols:best.f.cols, name:best.f.label+(best.assumed?' — assumed VDL, check Properties → VDL source':'')}:null;
   };
 
   let cblCurve=null, cblKind='amp', waveformCurves=[], sectorCurves=[], sectorKind='amp', biCurve=null, ttSectorCurves=[];
@@ -2559,6 +2666,7 @@ function mapCurves(vendor, curveMeta) {
     hasSectors: sectorCurves.length >= 6,
     hasBI: !!biCurve,
     needsBakerNorm: false,   // legacy flag — attenuation is now converted to BI, never ×5
+    families: FAMS.map(f=>({key:f.key,label:f.label,n:f.n,kind:familyKind(f),unit:f.cols[0].unit||''})),
   };
 }
 
@@ -2570,7 +2678,8 @@ function classifyByBI(biValue, isPct) {
   let biPct = isPct ? biValue : biValue*100;
   biPct = Math.max(0, Math.min(100, biPct));
   let interpretation;
-  if      (biPct >  80) interpretation = 'Excellent Bond';
+  if(CUTS.enabled){ const b=biPct/100; interpretation = CBL_ONLY_MAP[classifyByCuts(mvAtBI(b), b)]; }
+  else if (biPct >  80) interpretation = 'Excellent Bond';
   else if (biPct >  60) interpretation = 'Good Bond';
   else if (biPct >  40) interpretation = 'Partial Bond';
   else if (biPct >  20) interpretation = 'Poor Bond';
@@ -2723,7 +2832,7 @@ function parseLAS(text){
     if(rc===null||isNull(rc)) continue;
     const cblRaw = curveMap.cblKind==='att' ? rc : Math.abs(rc);
     let wave=null;
-    if(vdlIdx.length){ const w=[]; for(const ix of vdlIdx){ const v=at(vals,ix); if(v!==null&&!isNull(v)) w.push(v); } if(w.length>=8) wave=w; }
+    if(vdlIdx.length){ const w=new Array(vdlIdx.length); let ok=0; for(let k=0;k<vdlIdx.length;k++){ const v=at(vals,vdlIdx[k]); if(v!==null&&!isNull(v)){ w[k]=v; ok++; } else w[k]=NaN; } if(ok>=8) wave=w; }
     let sectorsRaw=null;
     if(secIdx.length>=6){ const s=[]; for(const ix of secIdx){ const v=at(vals,ix); if(v!==null&&!isNull(v)) s.push(v); } if(s.length>=6) sectorsRaw=s; }
     const biRaw=at(vals,biIdx); const bi=(biRaw!==null&&!isNull(biRaw))?biRaw:null;
@@ -2742,6 +2851,20 @@ function parseLAS(text){
   if(wasDescending) notes.push('Log recorded bottom-up — re-ordered shallow → deep.');
   if(ded.length<rawData.length) notes.push((rawData.length-ded.length)+' duplicate depth row(s) removed.');
   if(wrap) notes.push('Wrapped LAS (WRAP = YES) re-assembled.');
+  // VDL samples stored unsigned (e.g. 0–255 / 0–4095 with a mid-scale zero) are
+  // centred on their median so peaks/troughs display and classify correctly.
+  if(vdlIdx.length){
+    const smp=[]; let mn=Infinity; const st=Math.max(1,Math.floor(ded.length/1500));
+    for(let i=0;i<ded.length;i+=st){ const w=ded[i].waveform; if(w) for(const v of w){ if(isFinite(v)){ smp.push(v); if(v<mn) mn=v; } } }
+    let off=0;
+    if(smp.length && mn>=0){ smp.sort((a,b)=>a-b); off=smp[smp.length>>1]; notes.push('VDL samples are unsigned (all ≥ 0) — centred on their median ('+off.toFixed(1)+') before display and classification.'); }
+    for(const r of ded){ const w=r.waveform; if(w) for(let k=0;k<w.length;k++) w[k]=isFinite(w[k])?w[k]-off:0; }
+  }
+  const fams=curveMap.families||[];
+  if(!curveMap.waveformCurves.length){
+    const cands=fams.filter(f=>f.n>=8&&f.kind!=='tt');
+    notes.push(cands.length ? 'No VDL waveform recognised automatically. Array curves in this file: '+cands.slice(0,6).map(f=>f.label+' ('+f.kind.replace('?','')+')').join(', ')+' — pick one in Properties → VDL source.' : 'No VDL waveform or array curves in this file (CBL only).');
+  } else notes.push('VDL waveform: '+curveMap.wfSourceName+' — '+curveMap.waveformCurves.length+' samples per depth.');
 
   // Bond-Index curve scale is decided once for the whole curve.
   let biScale=null;
@@ -2773,6 +2896,7 @@ function classifyCBL(cbl, bi){
   // calibration (see BI_EXC / BI_MED / BI_FREE). At the 80/2 mV reference:
   //   Excellent ≤10 mV · Medium 10–30 mV · Poor 30–66 mV · Free pipe >66 mV
   if(bi==null) bi=computeBondIndex(cbl);
+  if(CUTS.enabled) return classifyByCuts(cbl, bi);   // user-defined ranges
   if(bi>=BI_EXC)  return 'EXCELLENT';
   if(bi>=BI_MED)  return 'MEDIUM';
   if(bi>=BI_FREE) return 'POOR';
@@ -4249,11 +4373,19 @@ function drawVDLGuide(){
 function renderVDL(){
   drawVDLGuide();
   const wrap=document.getElementById('vdlWrap');
-  if(!hasVDL){
-    wrap.innerHTML='<div class="no-vdl"><div class="ni">&#127754;</div><p style="font-size:15px;font-weight:700;margin-bottom:8px">No VDL Waveform Data Found</p><p style="color:var(--txt3)">This LAS file has CBL data only.<br>Expected curves: WAV1-8, NM1A-8, AMP1-8, VDL</p></div>';
+  // Without a time-domain waveform, fall back to the azimuthal sector map so the
+  // document never stays empty; the user can also pick the VDL family manually.
+  const mapMode = !hasVDL && allData.some(d=>d.sectors&&d.sectors.length);
+  if(!hasVDL && !mapMode){
+    const fams=((curveMapping&&curveMapping.families)||[]).filter(f=>f.n>=8&&f.kind!=='tt');
+    wrap.innerHTML='<div class="no-vdl"><div class="ni">&#127754;</div><p style="font-size:15px;font-weight:700;margin-bottom:8px">No VDL waveform recognised in this file</p>'+
+      (fams.length?'<p style="color:var(--txt2)">Array curves found: <b>'+fams.slice(0,8).map(f=>f.label+' ('+f.n+')').join(', ')+'</b><br>Choose the one that holds the VDL in <a style="color:var(--acc);cursor:pointer" onclick="APP.expandProps(\'psVdl\')">Properties &rarr; VDL source</a>.</p>'
+                  :'<p style="color:var(--txt3)">The file has no array / waveform curves (CBL amplitude only). A VDL needs the waveform samples exported as an array, e.g. VDL[0]&hellip;VDL[n], VDL_1&hellip;VDL_n or WF5[ ].</p>')+'</div>';
     return;
   }
-  vdlWaveData=allData.filter(d=>d.waveform&&d.waveform.length>0);
+  vdlWaveData = mapMode
+    ? allData.filter(d=>d.sectors&&d.sectors.length).map(d=>({depth:d.depth, waveform:d.sectors, vdlClass:null}))
+    : allData.filter(d=>d.waveform&&d.waveform.length>0);
   if(!vdlWaveData.length)return;
   const nS=vdlWaveData[0].waveform.length;
   const CW=Math.min(700,window.innerWidth-280),CH=540;
@@ -4265,13 +4397,13 @@ function renderVDL(){
         <button class="ctrl-btn" onclick="vdlReset()">&#8635; Reset</button>
         <button class="ctrl-btn" onclick="vdlFit()">Fit All</button>
         <span style="font-size:11px;color:var(--txt3);margin-right:8px">Mouse wheel = zoom depth &nbsp;|&nbsp; Drag = pan</span>
-        <span style="font-size:11px;color:var(--acc)">${curveMapping?curveMapping.wfSourceName:''} &nbsp;|&nbsp; ${nS} samples/depth</span>
+        <span style="font-size:11px;color:var(--acc)">${mapMode?('Azimuthal map: '+(curveMapping?curveMapping.secSourceName:'')+' (no VDL waveform)'):(curveMapping?curveMapping.wfSourceName:'')} &nbsp;|&nbsp; ${nS} ${mapMode?'sectors':'samples'}/depth</span>
       </div>
       <div class="vdl-body">
         <div class="depth-axis"><canvas id="dAxisC" width="56" height="${CH}"></canvas></div>
         <div class="vdl-canvas-box" id="vdlBox" style="width:${CW}px;height:${CH}px">
           <canvas id="vdlCanvas" width="${CW}" height="${CH-22}"></canvas>
-          <div class="vdl-time-bar"><span>Early (Pipe)</span><span>&#8596; Time Samples</span><span>Late (Formation)</span></div>
+          <div class="vdl-time-bar">${mapMode?'<span>0&deg;</span><span>Azimuthal map &mdash; no time-domain VDL in this file</span><span>360&deg;</span>':'<span>'+((window.APP&&APP.vdlT0!=null)?APP.vdlT0:200)+' &micro;s &middot; pipe</span><span>&#8596; time</span><span>formation &middot; '+((window.APP&&APP.vdlT1!=null)?APP.vdlT1:1200)+' &micro;s</span>'}</div>
         </div>
         <div style="display:flex;flex-direction:column;flex-shrink:0">
           <div style="font-size:9.5px;color:var(--txt3);text-align:center;padding:2px 0;font-weight:700">PATTERN SKETCH</div>
@@ -4346,7 +4478,7 @@ function drawVDL(){
     if(c&&VDL_CLS[c]){ctx.fillStyle=VDL_CLS[c].color+'99';ctx.fillRect(W-14,y,14,h2);}
   }
   // second, separate schematic panel (straight vs chaotic lines)
-  drawVDLPattern();
+  if(!vdlWaveData.length||!vdlWaveData[0]||vdlWaveData[0].vdlClass!==null||hasVDL) drawVDLPattern();
 }
 
 // ===== SCHEMATIC PATTERN PANEL (second drawing) =====
@@ -4688,11 +4820,11 @@ function exportPDF(){
   const W=doc.internal.pageSize.getWidth(), H=doc.internal.pageSize.getHeight();
   const now=new Date();
 
-  // ── Palette (site-matching, professional dark report) ─────────
-  const BG=[10,14,23], S1=[17,24,39], S2=[26,34,53], S3=[31,45,71];
-  const ACC=[245,158,11], TXT=[241,245,249], TXT2=[148,163,184], TXT3=[100,116,139];
-  const GOOD=[16,185,129], GOODB=[52,211,153], MID=[245,158,11], BAD=[251,146,60];
-  const FREE=[239,68,68], CHAN=[167,139,250], MICRO=[34,211,238], LIQ=[59,130,246];
+  // ── Palette: same light workstation look as the application ──
+  const BG=[255,255,255], S1=[246,248,250], S2=[236,240,244], S3=[221,230,240], NAVY=[31,46,67], LINE=[210,216,224];
+  const ACC=[15,108,189], TXT=[24,33,44], TXT2=[70,82,97], TXT3=[107,119,133];
+  const GOOD=[5,150,105], GOODB=[16,185,129], MID=[217,119,6], BAD=[234,88,12];
+  const FREE=[220,38,38], CHAN=[124,58,237], MICRO=[8,145,178], LIQ=[37,99,235];
   const ICLR={'Excellent Bond':GOOD,'Good Bond':GOODB,'Partial Bond':MID,'Poor Bond':BAD,
     'Free Pipe':FREE,'Possible Channeling':CHAN,'Possible Microannulus':MICRO};
 
@@ -4701,7 +4833,8 @@ function exportPDF(){
   const rect=(x,y,w,h,clr)=>{doc.setFillColor(...clr);doc.rect(x,y,w,h,'F');};
   const rrect=(x,y,w,h,r,clr)=>{doc.setFillColor(...clr);doc.roundedRect(x,y,w,h,r,r,'F');};
   const pageBG=()=>{rect(0,0,W,H,BG);};
-  const sectionBar=(t,y)=>{rrect(12,y,W-24,8,1.5,S3);text(t,16,y+5.6,ACC,9,'bold');return y+12;};
+  const sectionBar=(t,y)=>{rect(12,y,W-24,7.5,S3);rect(12,y,1.2,7.5,ACC);text(t,16,y+5.2,NAVY,8.6,'bold');return y+11.5;};
+  const pageTitle=(t,y)=>{text(t,14,y,NAVY,13,'bold');doc.setDrawColor(...ACC);doc.setLineWidth(0.5);doc.line(14,y+1.8,W-14,y+1.8);};
   const wm=(k)=>{const m=wellMeta&&(wellMeta[k]||wellMeta[k.toLowerCase()]);return m&&m.value?m.value:(m||'\u2014');};
 
   // ── aggregates ─────────────────────────────────────────────
@@ -4724,6 +4857,9 @@ function exportPDF(){
   const az=computeAzimuthal(allData);
   const im=computeImpedance(allData);
   const iface=evaluateInterfaces(allData);
+  const _dark=!isLight();
+  const _reRender=()=>{ for(const f of [renderCharts,renderRadialMap,renderImpedance,renderInterfaces]){ try{ f(); }catch(e){} } };
+  if(_dark){ document.body.classList.add('light'); document.body.classList.remove('dark'); _reRender(); }
   const _ov=document.getElementById('tab-overview'); let _ovCss=null;
   if(_ov&&!_ov.classList.contains('active')){ _ovCss=_ov.style.cssText; _ov.style.cssText+=';display:block;visibility:hidden;'; }
   [chartCBL,chartBI,chartCLS].forEach(c=>{try{ if(c){ const an=c.options.animation; c.options.animation=false; c.resize(); c.stop(); c.update(); c.draw(); c.options.animation=an; } }catch(e){}});
@@ -4743,6 +4879,7 @@ function exportPDF(){
   // Composite log — render full depth range off-view, capture, then restore view
   let imgComposite=null;
   try{ if(window.LV&&LV.renderFullImage) imgComposite=LV.renderFullImage(); }catch(e){imgComposite=null;}
+  if(_dark){ document.body.classList.remove('light'); document.body.classList.add('dark'); _reRender(); try{ if(window.LV) LV.draw(); }catch(e){} }
 
   // Overall verdict
   const goodPct=(ex+go)/n*100;
@@ -4752,10 +4889,11 @@ function exportPDF(){
 
   // ════════ PAGE 1 — COVER & EXECUTIVE SUMMARY ════════
   pageBG();
-  rect(0,0,W,34,S1); rect(0,34,W,1.2,ACC);
-  text('CBL / VDL CEMENT EVALUATION REPORT',W/2,15,ACC,17,'bold','center');
-  text('Cement Bond Log  \u2022  Variable Density Log  \u2022  Radial & Impedance Analysis',W/2,22,TXT2,8.5,'normal','center');
-  text(detectedVendor+'  \u2014  CBL/VDL'+'   |   Method: '+(biMode?'Weatherford BI-Direct':'CBL + VDL Matrix'),W/2,29,TXT3,7.5,'normal','center');
+  rect(0,0,W,34,NAVY); rect(0,34,W,1.2,ACC);
+  text('CEMENT EVALUATION REPORT \u2014 CBL / VDL',14,14,[255,255,255],16,'bold');
+  text('Cement Bond Log  \u2022  Variable Density Log  \u2022  Radial & Impedance Analysis',14,21,[203,213,225],8.2,'normal');
+  text(detectedVendor+'  \u2014  CBL/VDL'+'   |   Method: '+(biMode?'Weatherford BI-Direct':'CBL + VDL Matrix')+(CUTS.enabled?'   |   User-defined class cutoffs':''),14,28,[148,163,184],7.3,'normal');
+  text('Cement Evaluation Workstation',W-14,14,[148,163,184],7,'bold','right');
 
   let y=42;
   // Well information block
@@ -4775,8 +4913,8 @@ function exportPDF(){
   y+=29;
 
   // Executive verdict
-  rrect(12,y,W-24,11,2,S2);
-  doc.setDrawColor(...verdict[1]);doc.setLineWidth(0.7);doc.line(12,y,12,y+11);
+  rect(12,y,W-24,11,S1); doc.setDrawColor(...LINE); doc.setLineWidth(0.2); doc.rect(12,y,W-24,11,'S');
+  rect(12,y,1.6,11,verdict[1]);
   text('EXECUTIVE ASSESSMENT:  '+verdict[0],16,y+7,verdict[1],9,'bold');
   y+=15;
 
@@ -4819,22 +4957,21 @@ function exportPDF(){
   // ════════ PAGE 2 — ZONATION REPORT ════════
   doc.addPage(); pageBG();
   let y2=14;
-  text('AUTOMATIC ZONATION REPORT',14,y2,ACC,13,'bold'); y2+=4;
+  pageTitle('AUTOMATIC ZONATION REPORT',y2); y2+=4;
   text('Well segmented by dominant interpretation \u2014 majority-vote smoothing, thin-zone merging',14,y2+4,TXT3,7,'normal'); y2+=9;
   doc.autoTable({
     startY:y2, margin:{left:12,right:12,top:16,bottom:14},
     head:[['#','From (m)','To (m)','Thick (m)','Classification','Dom.','CBL (mV)','BI %','Engineering Recommendation']],
     body:zones.map((z,i)=>[i+1,z.from.toFixed(1),z.to.toFixed(1),z.thick.toFixed(1),z.label,z.pctDominant+'%',z.avgCBL.toFixed(1),z.avgBI.toFixed(0),z.rec]),
-    styles:{fillColor:S1,textColor:TXT,lineColor:[45,55,72],lineWidth:0.1,fontSize:6.6,cellPadding:1.4},
-    headStyles:{fillColor:S3,textColor:ACC,fontStyle:'bold',fontSize:6.8},
-    alternateRowStyles:{fillColor:S2},
+    styles:{fillColor:BG,textColor:TXT,lineColor:LINE,lineWidth:0.1,fontSize:6.6,cellPadding:1.4},
+    headStyles:{fillColor:NAVY,textColor:[255,255,255],fontStyle:'bold',fontSize:6.8},
+    alternateRowStyles:{fillColor:S1},
     columnStyles:{8:{cellWidth:58,fontSize:6}},
     didParseCell:(data)=>{
       if(data.section==='body'&&data.column.index===4){
         const clr=ICLR[data.cell.raw]; if(clr){data.cell.styles.textColor=clr;data.cell.styles.fontStyle='bold';}
       }
     },
-    willDrawPage:()=>{pageBG();}
   });
   let zy=doc.lastAutoTable.finalY+8;
   if(zy>H-46){doc.addPage();pageBG();zy=16;}
@@ -4852,7 +4989,7 @@ function exportPDF(){
   // ════════ PAGE 3 — ADVANCED QC & RADIAL ════════
   doc.addPage(); pageBG();
   let y3=14;
-  text('ADVANCED QUALITY CONTROL',14,y3,ACC,13,'bold'); y3+=8;
+  pageTitle('ADVANCED QUALITY CONTROL',y3); y3+=8;
 
   // Centralization
   y3=sectionBar('TOOL CENTRALIZATION QC  (Transit Time \u2014 API RP 10TR-1)',y3);
@@ -4960,7 +5097,7 @@ function exportPDF(){
   // ════════ COMPOSITE LOG — full page ════════
   if(imgComposite){
     doc.addPage(); pageBG();
-    text('COMPOSITE WELL LOG',14,14,ACC,13,'bold');
+    pageTitle('LOG VIEW \u2014 FULL INTERVAL',14);
     text('All tracks vs depth: Depth+Collars \u00b7 GR \u00b7 CBL amplitude \u00b7 VDL \u00b7 Bond Index \u00b7 Radial \u00b7 Interpretation \u00b7 Interfaces \u00b7 Flags',14,19.5,TXT3,7,'normal');
     // fit the wide composite image within the page while preserving aspect ratio
     try{
@@ -4979,9 +5116,9 @@ function exportPDF(){
   // ════════ PAGE 4 — METHODOLOGY ════════
   doc.addPage(); pageBG();
   let y4=14;
-  text('METHODOLOGY & CLASSIFICATION STANDARDS',14,y4,ACC,13,'bold'); y4+=9;
-  y4=sectionBar(biMode?'STEP 1 \u2014 BOND INDEX CLASSIFICATION (Weatherford RBT direct BI)':'STEP 1 \u2014 CBL AMPLITUDE CLASSIFICATION',y4);
-  if(biMode){
+  pageTitle('METHODOLOGY & CLASSIFICATION STANDARDS',y4); y4+=9;
+  y4=sectionBar((biMode?'STEP 1 \u2014 BOND INDEX CLASSIFICATION (Weatherford RBT direct BI)':'STEP 1 \u2014 CBL AMPLITUDE CLASSIFICATION')+(CUTS.enabled?'  \u2014  user-defined cutoffs':''),y4);
+  if(biMode && !CUTS.enabled){
     const bRows=[['Excellent Bond','BI > 80%',byInterp('Excellent Bond')],['Good Bond','60\u201380%',byInterp('Good Bond')],
       ['Partial Bond','40\u201360%',byInterp('Partial Bond')],['Poor Bond','20\u201340%',byInterp('Poor Bond')],['Free Pipe','< 20%',byInterp('Free Pipe')]];
     bRows.forEach((r,i)=>{
@@ -4994,7 +5131,8 @@ function exportPDF(){
     });
   } else {
     const _cb=k=>CBL_CLS[k].label.replace(/^[A-Z_ ]+ /,'');
-    const cRows=[['EXCELLENT',_cb('EXCELLENT'),cblEx,GOOD],['MEDIUM',_cb('MEDIUM'),cblM,MID],['POOR',_cb('POOR'),cblR,BAD],['FREE PIPE',_cb('FREE_PIPE'),cblF,FREE]];
+    const _nm=k=>CUTS.enabled?CUT_NAMES[k]:k.replace('_',' '), _ct=k=>biMode?byInterp(CBL_ONLY_MAP[k]):byCBL(k);
+    const cRows=[['EXCELLENT',GOOD],['MEDIUM',MID],['POOR',BAD],['FREE_PIPE',FREE]].map(([k,c])=>[_nm(k),_cb(k),_ct(k),c]);
     cRows.forEach((r,i)=>{
       const x=12+i*((W-24)/4), bw=(W-24)/4-3;
       rrect(x,y4,bw,17,2,S1);
@@ -5004,6 +5142,31 @@ function exportPDF(){
     });
   }
   y4+=23;
+  // Calibration and the class limits that were actually used, in both mV and BI %
+  y4=sectionBar('CALIBRATION & CLASSIFICATION CUTOFFS',y4);
+  text('Free pipe A_free = '+CAL.freePipe.toFixed(1)+' mV   \u00b7   100 % bonded A_100% = '+CAL.bonded.toFixed(1)+' mV   \u00b7   source: '+CAL.source+(CAL.casingOD?'   \u00b7   casing OD '+CAL.casingOD+' in':'')+(bakerNormalized?'   \u00b7   attenuation: free '+CAL.attFree.toFixed(1)+' / bonded '+CAL.attBond.toFixed(1)+' dB/ft':''),14,y4+2,TXT2,6.8,'normal');
+  text(CUTS.enabled?('Cutoffs: USER-DEFINED, entered as '+(CUTS.unit==='BI'?'Bond Index %':'CBL amplitude (mV)')+'. Ranges are from <= value < to; a value outside every range takes the nearest class.')
+                   :'Cutoffs: DEFAULT, set on Bond Index so they follow the casing calibration (10 / 30 mV at the 80 / 2 mV reference, free pipe below BI 5 %).',14,y4+6.5,TXT3,6.3,'normal');
+  if(biMode && !CUTS.enabled){ text('Weatherford BI-direct: the Bond Index recorded by the tool is classified with the five bands of Step 1; the CBL amplitude calibration is shown for reference only.',14,y4+11,TXT2,6.5,'normal'); y4+=17; }
+  else { const biOf=mv=>computeBondIndex(mv)*100, fm=v=>v.toFixed(v>=20?0:1), fb=v=>Math.max(0,Math.min(100,v)).toFixed(0);
+    const DEF={EXCELLENT:[BI_EXC,1],MEDIUM:[BI_MED,BI_EXC],POOR:[BI_FREE,BI_MED],FREE_PIPE:[0,BI_FREE]};
+    const body=CUT_ORDER.map(k=>{
+      let mv=null, bi=null, r=CUTS.rows[k];
+      if(!CUTS.enabled){ bi=[DEF[k][0]*100,DEF[k][1]*100]; mv=[k==='EXCELLENT'?0:mvAtBI(DEF[k][1]), k==='FREE_PIPE'?999:mvAtBI(DEF[k][0])]; }
+      else if(cutRowOk(r)){ if(CUTS.unit==='BI'){ bi=[r[0],r[1]]; mv=[r[1]>=100?0:mvAtBI(r[1]/100), r[0]<=0?999:mvAtBI(r[0]/100)]; }
+                           else { mv=[r[0],r[1]]; bi=[biOf(r[1]),r[0]<=0?100:biOf(r[0])]; } }
+      const cnt=biMode?byInterp(CBL_ONLY_MAP[k]):byCBL(k);
+      return [CUTS.enabled?CUT_NAMES[k]:k.replace('_',' '), CBL_ONLY_MAP[k],
+              mv?(mv[1]>=999?'>= '+fm(mv[0]):fm(mv[0])+' \u2013 '+fm(mv[1])):'not used', bi?fb(bi[0])+' \u2013 '+fb(bi[1]):'not used',
+              mv?cnt.toLocaleString()+'  ('+pct(cnt)+')':'\u2014'];
+    });
+    doc.autoTable({ startY:y4+9, margin:{left:12,right:12,top:16,bottom:14},
+      head:[['Class','Interpretation','CBL amplitude (mV)','Bond Index (%)','Depth levels']], body,
+      styles:{fillColor:BG,textColor:TXT,lineColor:LINE,lineWidth:0.1,fontSize:6.8,cellPadding:1.3},
+      headStyles:{fillColor:NAVY,textColor:[255,255,255],fontStyle:'bold',fontSize:6.8},
+      didParseCell:(d)=>{ if(d.section==='body'&&d.column.index===0){ const c=[GOOD,MID,BAD,FREE][d.row.index]; d.cell.styles.textColor=c; d.cell.styles.fontStyle='bold'; } },
+    });
+    y4=doc.lastAutoTable.finalY+6; }
   y4=sectionBar('FINAL INTERPRETATION DISTRIBUTION',y4);
   const iRows=[['Excellent Bond',ex],['Good Bond',go],['Partial Bond',pa],['Poor Bond',po],['Free Pipe',fr],['Possible Channeling',ch],['Possible Microannulus',ma]];
   iRows.forEach((r,i)=>{
@@ -5023,7 +5186,7 @@ function exportPDF(){
 
   // ════════ PAGE 5+ — DATA TABLE (sampled) ════════
   doc.addPage(); pageBG();
-  text('ANALYSIS DATA TABLE',14,14,ACC,13,'bold');
+  pageTitle('ANALYSIS DATA TABLE',14);
   const maxRows=1200;
   const stp=Math.max(1,Math.ceil(n/maxRows));
   const sample=allData.filter((_,i)=>i%stp===0);
@@ -5036,23 +5199,22 @@ function exportPDF(){
       d.depth.toFixed(2), d.cbl.toFixed(1), (d.bondIndex*100).toFixed(0),
       d.cblClass||(d.isWFT_BI?'BI-BASED':'\u2014'), d.vdlLabel||'\u2014', d.interpretation
     ].concat(hasAz?[d.azBondedPct!==undefined?d.azBondedPct.toFixed(0):'\u2014']:[])),
-    styles:{fillColor:S1,textColor:TXT2,lineColor:[40,50,66],lineWidth:0.08,fontSize:5.6,cellPadding:0.9},
-    headStyles:{fillColor:S3,textColor:ACC,fontStyle:'bold',fontSize:6.2},
-    alternateRowStyles:{fillColor:S2},
+    styles:{fillColor:BG,textColor:TXT2,lineColor:LINE,lineWidth:0.08,fontSize:5.6,cellPadding:0.9},
+    headStyles:{fillColor:NAVY,textColor:[255,255,255],fontStyle:'bold',fontSize:6.2},
+    alternateRowStyles:{fillColor:S1},
     didParseCell:(data)=>{
       if(data.section==='body'&&data.column.index===5){
         const clr=ICLR[data.cell.raw]; if(clr){data.cell.styles.textColor=clr;}
       }
     },
-    willDrawPage:()=>{pageBG();}
   });
 
   // ── Footer & page numbers on every page ────────────────────
   const total=doc.internal.getNumberOfPages();
   for(let p2=1;p2<=total;p2++){
     doc.setPage(p2);
-    rect(0,H-9,W,9,S1);
-    text('CBL/VDL Analysis Tool v2  |  Confidential Technical Report',14,H-3.5,TXT3,6,'normal');
+    rect(0,H-9,W,9,S1); rect(0,H-9,W,0.4,LINE);
+    text('Cement Evaluation Workstation  |  CBL / VDL report',14,H-3.5,TXT3,6,'normal');
     text(wm('WELL')+'  \u2014  '+fileName,W/2,H-3.5,TXT3,6,'normal','center');
     text('Page '+p2+' of '+total+'   \u00b7   '+now.toISOString().substring(0,10),W-14,H-3.5,TXT3,6,'normal','right');
   }
@@ -5078,8 +5240,8 @@ function showPDFModal(uri){
   ov.id='pdfModal';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:20px;';
   const box=document.createElement('div');
-  box.style.cssText='background:#111827;border:1px solid rgba(245,158,11,0.3);border-radius:16px;width:100%;max-width:920px;height:90vh;display:flex;flex-direction:column;overflow:hidden;';
-  box.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid rgba(255,255,255,0.08);flex-shrink:0"><span style="font-size:15px;font-weight:700;color:#f59e0b">PDF Report Preview</span><div style="display:flex;gap:10px"><a href="'+uri+'" download="CBL_VDL_Report_v2.pdf" style="font-size:13px;font-weight:700;background:#f59e0b;color:#0a0e17;padding:8px 18px;border-radius:8px;text-decoration:none">Download PDF</a><button onclick="document.getElementById(\'pdfModal\').remove()" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);color:#f1f5f9;font-size:18px;width:34px;height:34px;border-radius:8px;cursor:pointer">x</button></div></div><iframe src="'+uri+'" style="flex:1;width:100%;border:none"></iframe><div style="padding:8px;text-align:center;font-size:11px;color:#64748b;flex-shrink:0">If PDF does not display, use Download PDF button above</div>';
+  box.style.cssText='background:#fff;border:1px solid #d2d8e0;border-radius:6px;width:100%;max-width:920px;height:90vh;display:flex;flex-direction:column;overflow:hidden;';
+  box.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid #d2d8e0;background:#1f2e43;flex-shrink:0"><span style="font-size:14px;font-weight:700;color:#fff">PDF Report Preview</span><div style="display:flex;gap:10px"><a href="'+uri+'" download="CBL_VDL_Report_v2.pdf" style="font-size:13px;font-weight:700;background:#0f6cbd;color:#fff;padding:7px 16px;border-radius:4px;text-decoration:none">Download PDF</a><button onclick="document.getElementById(\'pdfModal\').remove()" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);color:#f1f5f9;font-size:18px;width:34px;height:34px;border-radius:8px;cursor:pointer">x</button></div></div><iframe src="'+uri+'" style="flex:1;width:100%;border:none"></iframe><div style="padding:8px;text-align:center;font-size:11px;color:#64748b;flex-shrink:0">If PDF does not display, use Download PDF button above</div>';
   ov.appendChild(box);
   ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
   document.body.appendChild(ov);
@@ -5733,7 +5895,7 @@ const APP={
   fillCalibration(){
     const set=(id,v)=>{ const e=$(id); if(e) e.value=(v==null||v==='')?'':v; };
     set('calOD',CAL.casingOD||''); set('calFree',(+CAL.freePipe).toFixed(1)); set('calBond',(+CAL.bonded).toFixed(2)); set('calAttF',(+CAL.attFree).toFixed(1)); set('calAttB',(+CAL.attBond).toFixed(1));
-    const cm=window.curveMapping||{}; const att=cm.cblKind==='att';
+    const cm=(typeof curveMapping!=='undefined'&&curveMapping)||{}; const att=cm.cblKind==='att';
     ['calAttF','calAttB'].forEach(id=>{ const e=$(id); if(e) e.closest('tr').style.opacity=att?'1':'.45'; });
     $('calSrc').textContent=CAL.source+(CAL.locked?' (user)':'');
     $('calNotes').innerHTML=(CAL.notes||[]).map(n=>'&bull; '+esc(n)).join('<br>')+
@@ -5746,7 +5908,7 @@ const APP={
     if(af!=null&&ab!=null&&!(ab>af)){ this.status('α_100% must be greater than α_free.','error'); return; }
     CAL.casingOD=od; if(fr!=null) CAL.freePipe=fr; if(bo!=null) CAL.bonded=bo; if(af!=null) CAL.attFree=af; if(ab!=null) CAL.attBond=ab;
     CAL.locked=true; CAL.source='manual'; CAL.notes=['Values entered in Properties.'];
-    this.log(`Calibration applied: A_free ${CAL.freePipe} mV, A_100% ${CAL.bonded} mV`+((window.curveMapping||{}).cblKind==='att'?`, α ${CAL.attFree}/${CAL.attBond} dB/ft`:''),'ok');
+    this.log(`Calibration applied: A_free ${CAL.freePipe} mV, A_100% ${CAL.bonded} mV`+(((typeof curveMapping!=='undefined'&&curveMapping)||{}).cblKind==='att'?`, α ${CAL.attFree}/${CAL.attBond} dB/ft`:''),'ok');
     this.recompute();
   },
   chartCalibration(){
@@ -5757,6 +5919,74 @@ const APP={
   },
   resetCalibration(){ CAL.locked=false; if(lastParsed){ autoCalibrate(lastParsed); this.log('Calibration reset to automatic values.','ok'); this.recompute(); } else this.fillCalibration(); },
   recompute(){ if(!lastParsed){ this.fillCalibration(); return; } this.status('Recomputing interpretation…','busy'); setTimeout(()=>{ runAnalysis(); this.afterAnalysis(); this.status('Ready','ready'); },20); },
+  // ── classification cutoffs (Properties) ──
+  fillCuts(){
+    const on=$('cutOn'); if(!on) return;
+    on.checked=CUTS.enabled; $('cutUnit').value=CUTS.unit;
+    for(const k of CUT_ORDER){ const r=CUTS.rows[k]||[]; $('cutLo_'+k).value=(r[0]!=null&&isFinite(r[0]))?r[0]:''; $('cutHi_'+k).value=(r[1]!=null&&isFinite(r[1]))?r[1]:''; }
+    $('cutGrid').classList.toggle('off',!CUTS.enabled);
+    $('cutNote').innerHTML=(CUTS.enabled?'<b style="color:var(--ws-accent)">Custom cutoffs active</b> &middot; ':'')+
+      (CUTS.unit==='BI'?'Bond Index %: higher = better bond.':'CBL amplitude mV: lower = better bond.')+' Ranges are from &le; value &lt; to; leave a row empty to drop that class.';
+  },
+  readCutRows(){
+    const rows={}, num=id=>{ const v=$(id).value.trim(); return v===''?null:parseFloat(v); };
+    for(const k of CUT_ORDER){ const lo=num('cutLo_'+k), hi=num('cutHi_'+k); rows[k]=(lo==null&&hi==null)?null:[lo,hi]; }
+    return rows;
+  },
+  checkCuts(rows,unit){
+    const msgs=[], used=CUT_ORDER.filter(k=>rows[k]);
+    for(const k of used){ const r=rows[k]; if(!(isFinite(r[0])&&isFinite(r[1]))) msgs.push(CUT_NAMES[k]+': enter both From and To'); else if(r[1]<=r[0]) msgs.push(CUT_NAMES[k]+': To must be greater than From'); }
+    if(!rows.EXCELLENT||!rows.FREE_PIPE) msgs.push('Good and Free pipe ranges are required');
+    if(msgs.length) return {err:msgs};
+    const sorted=used.map(k=>({k,r:rows[k]})).sort((a,b)=>a.r[0]-b.r[0]), warn=[];
+    for(let i=1;i<sorted.length;i++){ const a=sorted[i-1], b=sorted[i];
+      if(b.r[0]<a.r[1]) warn.push(CUT_NAMES[a.k]+' and '+CUT_NAMES[b.k]+' overlap ('+b.r[0]+' < '+a.r[1]+')');
+      else if(b.r[0]>a.r[1]) warn.push('gap '+a.r[1]+'–'+b.r[0]+' between '+CUT_NAMES[a.k]+' and '+CUT_NAMES[b.k]+' (values there go to the nearest class)'); }
+    const order=sorted.map(x=>x.k), good=unit==='BI'?['FREE_PIPE','POOR','MEDIUM','EXCELLENT']:['EXCELLENT','MEDIUM','POOR','FREE_PIPE'];
+    if(order.join()!==good.filter(k=>rows[k]).join()) warn.push(unit==='BI'?'In Bond Index % the Good range should be the highest values':'In mV the Good range should be the lowest values');
+    return {warn};
+  },
+  cutToggle(){ $('cutGrid').classList.toggle('off',!$('cutOn').checked);
+    if($('cutOn').checked && !CUTS.enabled && !CUT_ORDER.some(k=>$('cutLo_'+k).value!=='')) this.fillCutsFromCal(); },
+  cutUnitChange(){ const u=$('cutUnit').value; const rows=defaultCutRows(u);
+    for(const k of CUT_ORDER){ $('cutLo_'+k).value=rows[k][0]; $('cutHi_'+k).value=rows[k][1]; }
+    this.log('Cutoff unit set to '+(u==='BI'?'Bond Index %':'CBL mV')+' — rows pre-filled from the current calibration; edit them and press Apply.'); },
+  fillCutsFromCal(){ const u=$('cutUnit').value, rows=defaultCutRows(u);
+    for(const k of CUT_ORDER){ $('cutLo_'+k).value=rows[k][0]; $('cutHi_'+k).value=rows[k][1]; } },
+  applyCuts(){
+    const enabled=$('cutOn').checked, unit=$('cutUnit').value;
+    if(enabled){
+      const rows=this.readCutRows(), chk=this.checkCuts(rows,unit);
+      if(chk.err){ this.status('Cutoffs not applied: '+chk.err.join('; '),'error'); $('cutNote').innerHTML='<b style="color:var(--bad)">'+chk.err.map(esc).join('<br>')+'</b>'; return; }
+      CUTS.unit=unit; for(const k of CUT_ORDER) CUTS.rows[k]=rows[k]||[NaN,NaN];
+      (chk.warn||[]).forEach(w=>this.log('Cutoffs: '+w,'warn'));
+    }
+    CUTS.enabled=enabled; saveCuts(); refreshCblClassLabels();
+    this.log(enabled?'Custom cutoffs applied: '+CUT_ORDER.map(k=>CBL_CLS[k].label).join(' · '):'Custom cutoffs off — default calibration-based classes restored.','ok');
+    this.recompute();
+  },
+  // ── VDL source (Properties) ──
+  fillVdl(){
+    const sel=$('vdlSrc'); if(!sel) return;
+    const cm=(typeof curveMapping!=='undefined'&&curveMapping)||{}, fams=(cm.families||[]).filter(f=>f.n>=8);
+    const auto=VDL_FORCE==null&&cm.waveformCurves&&cm.waveformCurves.length?' — '+cm.wfSourceName:'';
+    sel.innerHTML='<option value="auto">Automatic'+esc(auto)+'</option><option value="none">None (CBL only)</option>'+
+      fams.map(f=>`<option value="${esc(f.key)}">${esc(f.label)} · ${f.n} ${f.kind==='sector'?'sectors':'samples'}${f.kind==='wave'?' (VDL)':f.kind==='sector'?' (azimuthal)':f.kind==='imp'?' (impedance)':f.kind==='tt'?' (transit times)':''}</option>`).join('');
+    sel.value = VDL_FORCE==null?'auto':(VDL_FORCE==='none'?'none':VDL_FORCE);
+    $('vdlT0').value=this.vdlT0; $('vdlT1').value=this.vdlT1;
+    $('vdlNote').innerHTML = !allData.length ? 'Load a file to list its array curves.' :
+      (hasVDL ? 'Showing <b>'+esc(cm.wfSourceName)+'</b> as VDL.' :
+       (fams.length ? '<b style="color:var(--mid)">No VDL waveform recognised.</b> Pick the array that holds it above.' : 'No array curves in this file — CBL only.'));
+  },
+  applyVdl(){
+    const t0=parseFloat($('vdlT0').value), t1=parseFloat($('vdlT1').value);
+    if(isFinite(t0)&&isFinite(t1)&&t1>t0){ this.vdlT0=t0; this.vdlT1=t1; }
+    const v=$('vdlSrc').value, force = v==='auto'?null:v;
+    if(force!==VDL_FORCE && LAST_LAS_TEXT){
+      VDL_FORCE=force; this.status('Re-reading the file with the selected VDL source…','busy');
+      setTimeout(()=>{ try{ finishProcessing(parseLAS(LAST_LAS_TEXT)); this.status('Ready','ready'); }catch(e){ this.status('VDL source failed: '+e.message,'error'); } },20);
+    } else { try{ renderVDL(); }catch(e){} if(window.LV) LV.refreshTracks(); this.fillVdl(); }
+  },
   // ── after load / analysis ──
   onDataLoaded(res){
     const w=(wellMeta.WELL||'').trim(); const title=(w||fileName)+(fileName&&w?' — '+fileName:'');
@@ -5776,10 +6006,11 @@ const APP={
   },
   refreshMethodsText(){
     const v={E:mvAtBI(BI_EXC),M:mvAtBI(BI_MED),F:mvAtBI(BI_FREE),AF:CAL.freePipe,AB:CAL.bonded};
+    if(CUTS.enabled){ const e=cutBoundaryMv('EXCELLENT'), m=cutBoundaryMv('MEDIUM'), p=cutBoundaryMv('POOR'); if(e!=null) v.E=e; if(m!=null) v.M=m; v.F=(p!=null)?p:v.M; }
     document.querySelectorAll('.mvx').forEach(e=>{ const x=v[e.dataset.k]; if(x!=null) e.textContent=(x>=20?x.toFixed(0):x.toFixed(1)); });
   },
   afterAnalysis(){
-    this.fillCalibration(); this.renderTree(); this.renderWellProps(); this.renderKPIs(); this.refreshMethodsText();
+    this.fillCalibration(); this.fillCuts(); this.fillVdl(); this.renderTree(); this.renderWellProps(); this.renderKPIs(); this.refreshMethodsText();
     if(window.CPI&&CPI.syncRefs) CPI.syncRefs();
     if(tocResult) this.log(tocResult.tocDepth!=null?`TOC ${fmtDepth(tocResult.tocDepth)} (confidence ${tocResult.confidence}%)`:'TOC: '+(tocResult.reason||'not detected'), tocResult.tocDepth!=null?'ok':'warn');
     $('sumSub').textContent=(wellMeta.WELL||fileName)+' · '+detectedVendor+' · '+allData.length.toLocaleString()+' levels';
@@ -5914,7 +6145,7 @@ const APP={
     ['File',[['&#128194;','Open LAS / DLIS…','APP.openFile()','Ctrl+O'],['&#9878;','Open comparison well…',"document.getElementById('fiCompare').click()"],['-'],['&#128190;','Export results CSV','exportCSV()'],['&#128196;','Export PDF report','exportPDF()'],['&#128247;','Export log view PNG','LV.exportPNG()'],['&#128190;','Export zones CSV','exportZonesCSV()']]],
     ['View',[['&#9776;','Project browser','APP.toggleDock(\'left\')'],['&#9881;','Properties','APP.toggleDock(\'right\')'],['&#128172;','Output console','APP.toggleConsole()'],['-'],['&#9680;','Toggle light / dark theme','toggleTheme()'],['m','Depth unit: metres','APP.userDepthUnit(\'m\')'],['ft','Depth unit: feet','APP.userDepthUnit(\'ft\')']]],
     ['Log view',[['&#9776;','Open log view','APP.openDoc(\'logview\')'],['&#10133;','Zoom in','LV.zoom(0.5)','+'],['&#10134;','Zoom out','LV.zoom(2)','−'],['&#8597;','Fit whole interval','LV.fit()','F'],['-'],['','Scale 1:200','LV.setRatio(200)'],['','Scale 1:500','LV.setRatio(500)'],['','Scale 1:1000','LV.setRatio(1000)'],['-'],['&#128205;','Go to TOC','APP.gotoTOC()']]],
-    ['Cement evaluation',[['&#128202;','Well summary','APP.openDoc(\'overview\')'],['&#9638;','Data table','APP.openDoc(\'analysis\')'],['&#127754;','VDL display','APP.openDoc(\'vdl\')'],['&#128506;','Zonation & QC','APP.openDoc(\'zonation\')'],['&#128737;','Strength & isolation','APP.openDoc(\'strength\')'],['&#129522;','Cement Placement Index','APP.openDoc(\'cpi\')'],['-'],['&#9881;','Calibration…','APP.expandProps(\'psCal\')'],['&#8635;','Recompute interpretation','APP.recompute()']]],
+    ['Cement evaluation',[['&#128202;','Well summary','APP.openDoc(\'overview\')'],['&#9638;','Data table','APP.openDoc(\'analysis\')'],['&#127754;','VDL display','APP.openDoc(\'vdl\')'],['&#128506;','Zonation & QC','APP.openDoc(\'zonation\')'],['&#128737;','Strength & isolation','APP.openDoc(\'strength\')'],['&#129522;','Cement Placement Index','APP.openDoc(\'cpi\')'],['-'],['&#9881;','Calibration…','APP.expandProps(\'psCal\')'],['&#9636;','Classification cutoffs…','APP.expandProps(\'psCuts\')'],['&#127754;','VDL source…','APP.expandProps(\'psVdl\')'],['&#8635;','Recompute interpretation','APP.recompute()']]],
     ['Geomechanics',[['&#128678;','Pore pressure & fracture gradient (PPFG)','APP.openDoc(\'frac\')'],['&#128218;','PPFG methodology','FP.showMethodology()']]],
     ['Window',[['&#127968;','Start page','APP.openDoc(\'start\')'],['&#10005;','Close all documents','APP.closeAll()']]],
     ['Help',[['&#128218;','Interpretation methods','APP.openDoc(\'classification\')'],['&#9000;','Keyboard shortcuts','APP.shortcuts()'],['&#8505;','About','APP.about()']]]
@@ -5964,7 +6195,7 @@ const APP={
     window.addEventListener('resize',()=>{ if(window.LV&&LV.plot&&this.active==='logview'){ LV.plot._layout(); LV.plot._header(); LV.plot.draw(); } });
   },
   init(){
-    this.buildMenus(); this.wire(); this.renderTabs(); this.renderWf(); this.renderTree(); refreshCblClassLabels(); this.fillCalibration(); this.refreshMethodsText();
+    this.buildMenus(); this.wire(); this.renderTabs(); this.renderWf(); this.renderTree(); refreshCblClassLabels(); this.fillCalibration(); this.fillCuts(); this.fillVdl(); this.refreshMethodsText();
     document.querySelectorAll('[data-need="data"]').forEach(b=>b.disabled=true);
     try{ const du=localStorage.getItem('cblvdl_du'); if(du==='ft'||du==='m'){ this._duUser=true; DISPLAY_DU=du; $('tbUnit').value=du; $('sbUnit').textContent=du; } }catch(e){}
     if(window.innerWidth<=860){ $('ws').classList.add('no-console'); }
@@ -7779,7 +8010,7 @@ if ('serviceWorker' in navigator &&
       {label:'Overburden (Sv)',data:s.map(function(d){return d.sv_grad_ppg;}),borderColor:'#f97316',borderWidth:2,pointRadius:0,tension:.05},
       {label:'Pore Pressure (Pp)',data:s.map(function(d){return d.pp_grad_ppg;}),borderColor:'#ef4444',borderWidth:2,pointRadius:0,tension:.05},
       {label:'Hydrostatic',data:s.map(function(){return 8.33;}),borderColor:'#64748b',borderWidth:1,pointRadius:0,borderDash:[4,2]}
-    ]},options:{responsive:true,maintainAspectRatio:false,scales:{x:ax('Depth (m)'),y:Object.assign(ax('Gradient (ppg)'),{min:6,max:20})},plugins:leg}});
+    ]},options:{responsive:true,maintainAspectRatio:false,scales:{x:ax('Depth (m)'),y:Object.assign(ax('Gradient (ppg)'),{min:6,max:Math.max(20,Math.ceil(Math.max.apply(null,s.map(function(d){return d.sv_grad_ppg;}))+0.5))})},plugins:leg}});
 
     FP.charts.fg=new Chart(document.getElementById('fpChartFG'),{type:'line',data:{labels:lab,datasets:[
       {label:'Fracture Gradient (Fg)',data:s.map(function(d){return d.fg_grad_ppg;}),borderColor:'#22d3ee',borderWidth:2,pointRadius:0,tension:.05},
@@ -7936,22 +8167,23 @@ if ('serviceWorker' in navigator &&
     var mx=function(k){ return Math.max.apply(null,d.map(function(x){return x[k];})); };
 
     function header(title){
-      doc.setFillColor(17,24,39); doc.rect(0,0,W,18,'F');
-      doc.setTextColor(245,158,11); doc.setFontSize(13);
-      doc.text('BASIRA \u2014 Fracture Pressure Report',M,11);
-      doc.setFontSize(9); doc.setTextColor(148,163,184);
+      doc.setFillColor(31,46,67); doc.rect(0,0,W,18,'F');
+      doc.setFillColor(15,108,189); doc.rect(0,18,W,0.9,'F');
+      doc.setTextColor(255,255,255); doc.setFontSize(13); doc.setFont('helvetica','bold');
+      doc.text('Cement Evaluation Workstation \u2014 PPFG Report',M,11); doc.setFont('helvetica','normal');
+      doc.setFontSize(9); doc.setTextColor(203,213,225);
       doc.text(title,W-M,11,{align:'right'});
     }
     function sect(t,y){
-      doc.setTextColor(245,158,11); doc.setFontSize(11); doc.text(t,M,y);
-      doc.setDrawColor(245,158,11); doc.setLineWidth(0.3); doc.line(M,y+1.5,W-M,y+1.5);
+      doc.setTextColor(31,46,67); doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.text(t,M,y); doc.setFont('helvetica','normal');
+      doc.setDrawColor(15,108,189); doc.setLineWidth(0.4); doc.line(M,y+1.5,W-M,y+1.5);
       return y+8;
     }
 
     // ---------------- Page 1: summary + parameters ----------------
     header('Summary');
     var y=28;
-    doc.setTextColor(241,245,249); doc.setFontSize(10);
+    doc.setTextColor(24,33,44); doc.setFontSize(10);
     doc.text('Well: '+(FP.well.WELL||FP.well.UWI||'Unknown')+
              (FP.well.FLD?'   |   Field: '+FP.well.FLD:'')+
              '   |   Depths analysed: '+n.toLocaleString()+
@@ -7959,7 +8191,7 @@ if ('serviceWorker' in navigator &&
              '   |   Date: '+new Date().toISOString().split('T')[0], M, y);
     y+=6;
     if(FP.sources&&FP.sources.length){
-      doc.setFontSize(8); doc.setTextColor(148,163,184);
+      doc.setFontSize(8); doc.setTextColor(107,119,133);
       doc.text('Source file(s): '+FP.sources.map(function(s){return s.name;}).join(' + '),M,y); y+=6;
     }
 
@@ -7974,7 +8206,7 @@ if ('serviceWorker' in navigator &&
           ['Safe mud window (ppg)', avg('mud_window').toFixed(2), mn('mud_window').toFixed(2), mx('mud_window').toFixed(2)]
         ],
         styles:{fontSize:8,cellPadding:1.8},
-        headStyles:{fillColor:[31,45,71],textColor:[245,158,11]},
+        headStyles:{fillColor:[31,46,67],textColor:[255,255,255]},
         alternateRowStyles:{fillColor:[245,247,250]},
         margin:{left:M,right:M}});
       y=doc.lastAutoTable.finalY+8;
@@ -7996,7 +8228,7 @@ if ('serviceWorker' in navigator &&
     if(doc.autoTable){
       doc.autoTable({startY:y, head:[['Parameter','Value']], body:kv,
         styles:{fontSize:8,cellPadding:1.6},
-        headStyles:{fillColor:[31,45,71],textColor:[245,158,11]},
+        headStyles:{fillColor:[31,46,67],textColor:[255,255,255]},
         alternateRowStyles:{fillColor:[245,247,250]},
         columnStyles:{0:{cellWidth:90}},
         margin:{left:M,right:M}});
@@ -8015,6 +8247,8 @@ if ('serviceWorker' in navigator &&
     }
 
     // ---------------- Charts ----------------
+    var _dark=!document.body.classList.contains('light');
+    if(_dark){ document.body.classList.add('light'); document.body.classList.remove('dark'); try{ renderCharts(); }catch(e){} }
     var charts=[
       {c:FP.charts.gr,  t:'Gamma Ray & Caliper'},
       {c:FP.charts.rhob,t:'Bulk Density & Sonic (DT)'},
@@ -8023,6 +8257,14 @@ if ('serviceWorker' in navigator &&
       {c:FP.charts.mw,  t:'Operational Mud-Weight Window'}
     ].filter(function(x){ return x.c && typeof x.c.toBase64Image==='function'; });
 
+    // A chart in a hidden document has a 0x0 canvas: show its ancestors invisibly while capturing.
+    var _unhid=[];
+    charts.forEach(function(x){ for(var el=x.c.canvas; el&&el!==document.body; el=el.parentElement){
+      if(getComputedStyle(el).display==='none'){ _unhid.push([el,el.style.cssText]); el.style.cssText+=';display:block;visibility:hidden;'; } } });
+    // Fixed 1500x395 px capture so every plot fills the 273x72 mm slot without distortion.
+    charts.forEach(function(x){ var w=x.c.canvas.parentElement; if(w){ _unhid.push([w,w.style.cssText]); w.style.cssText+=';width:1500px;height:395px;max-width:none;'; }
+      x._mar=x.c.options.maintainAspectRatio; x.c.options.maintainAspectRatio=false; });
+    charts.forEach(function(x){ try{ x.c.options.animation=false; x.c.resize(); x.c.update('none'); x.c.draw(); }catch(e){} });
     if(charts.length){
       doc.addPage(); header('Depth plots'); y=28;
       var cw=W-2*M, ch=72, placed=0;
@@ -8038,6 +8280,9 @@ if ('serviceWorker' in navigator &&
       if(!placed){ doc.setFontSize(9); doc.setTextColor(120,120,120);
                    doc.text('Charts could not be rendered in this browser.',M,y); }
     }
+    _unhid.reverse().forEach(function(u){ u[0].style.cssText=u[1]; });
+    charts.forEach(function(x){ try{ x.c.options.maintainAspectRatio=x._mar; x.c.resize(); }catch(e){} });
+    if(_dark){ document.body.classList.remove('light'); document.body.classList.add('dark'); try{ FP.rethemeCharts(); }catch(e){} }
 
     // ---------------- Method sensitivity ----------------
     if(FP.kMethods && d[0].fgAll && doc.autoTable){
@@ -8060,7 +8305,7 @@ if ('serviceWorker' in navigator &&
       doc.autoTable({startY:y,
         head:[['Method','K @ mid-depth','Mean Fg (ppg)','Fg range (ppg)','Mean window (ppg)','vs selected']],
         body:body, styles:{fontSize:8,cellPadding:1.8},
-        headStyles:{fillColor:[31,45,71],textColor:[245,158,11]},
+        headStyles:{fillColor:[31,46,67],textColor:[255,255,255]},
         alternateRowStyles:{fillColor:[245,247,250]},
         margin:{left:M,right:M}});
       y=doc.lastAutoTable.finalY+6;
@@ -8102,7 +8347,7 @@ if ('serviceWorker' in navigator &&
         head:[['Depth m','Vsh','Sv psi','Sv ppg','Pp psi','Pp ppg','K','Fg psi','Fg ppg','Mud window','Borehole','Remarks']],
         body:rows,
         styles:{fontSize:6.5,cellPadding:1,overflow:'linebreak'},
-        headStyles:{fillColor:[31,45,71],textColor:[245,158,11],fontSize:6.5},
+        headStyles:{fillColor:[31,46,67],textColor:[255,255,255],fontSize:6.5},
         alternateRowStyles:{fillColor:[246,248,251]},
         columnStyles:{11:{cellWidth:42}},
         margin:{left:M,right:M,top:24},
@@ -8116,7 +8361,8 @@ if ('serviceWorker' in navigator &&
     for(var pg=1; pg<=total; pg++){
       doc.setPage(pg);
       doc.setFontSize(7); doc.setTextColor(120,130,145);
-      doc.text('Generated by BASIRA \u2014 log-based estimate. Validate against LOT, FIT and RFT/MDT before operational use.',M,H-6);
+      doc.setDrawColor(210,216,224); doc.setLineWidth(0.2); doc.line(M,H-9.5,W-M,H-9.5);
+      doc.text('Cement Evaluation Workstation \u2014 PPFG log-based estimate. Validate against LOT, FIT and RFT/MDT before operational use.',M,H-6);
       doc.text('Page '+pg+' of '+total,W-M,H-6,{align:'right'});
     }
 
