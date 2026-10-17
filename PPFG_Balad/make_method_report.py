@@ -92,7 +92,7 @@ def build_report(src, out_dir):
   <h2 class="sub">Method, calculations and results from nine offset wells (Balad-1 to Balad-9)</h2>
   <table class="meta">
     <tr><td>Input</td><td>Balad_PPFG__PT.xlsx &ndash; Final PPFG sheets of Balad-1 &hellip; Balad-9, EBS-1996 study table, Pressure Testing (casing) sheet</td></tr>
-    <tr><td>Outputs</td><td>Balad_Unified_PPFG.xlsx, Balad_PPFG_Final.png, Balad_PPFG_QC_AllWells.png, Balad_OBG_QC.png</td></tr>
+    <tr><td>Outputs</td><td>Balad_Unified_PPFG.xlsx, Balad_PPFG_Final.png, Balad_PPFG_Final_Wells.png, Balad_PPFG_QC_AllWells.png, Balad_OBG_QC.png</td></tr>
     <tr><td>Code</td><td>build_unified_ppfg.py (all numbers in this report are produced by it)</td></tr>
     <tr><td>Date</td><td>{datetime.date.today():%d %B %Y}</td></tr>
   </table>
@@ -449,6 +449,7 @@ expect losses, and plan LCM or a contingency string.</p>
 <section>
 <h2>7. Final chart and how to read it</h2>
 <div class="fig">{img(os.path.join(out_dir, 'Balad_PPFG_Final.png'))}<div class="cap">Figure 2 &ndash; Balad field generic PPFG, design curves for approval.</div></div>
+<div class="fig">{img(os.path.join(out_dir, 'Balad_PPFG_Final_Wells.png'))}<div class="cap">Figure 2b &ndash; The same design curves with the nine offset wells (each well's PP solid, actual MW dashed).</div></div>
 {table(["Element", "Meaning"], [
         ["Top axis / left axis", "EMW in sg (0.6&ndash;2.6) / depth in m TVD-RT (= MD, vertical wells)"],
         ["Brown curve", "Field OBG integrated from RHOB/DT (Section 3)"],

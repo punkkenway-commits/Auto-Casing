@@ -426,7 +426,7 @@ def plot(res, wells, ebs, path_png):
 
 
 
-def plot_final(res, wells, path_png):
+def plot_final(res, wells, path_png, show_wells=False):
     """Approval chart: PP P50, PP Design High, FG Design with confidence and well count."""
     import matplotlib
     matplotlib.use("Agg")
@@ -452,7 +452,7 @@ def plot_final(res, wells, path_png):
     ax.set_xticks(np.arange(0.6, 2.61, 0.2))
     ax.set_yticks(np.arange(0, zmax + 1, 500))
     ax.grid(color="#9a9a9a", lw=0.5)
-    fig.text(0.5, 0.972, "BALAD FIELD GENERIC PPFG - DESIGN CURVES", ha="center", fontsize=18,
+    fig.text(0.5, 0.972, "BALAD FIELD GENERIC PPFG - DESIGN CURVES" + (" WITH OFFSET WELLS" if show_wells else ""), ha="center", fontsize=18,
              fontweight="bold", color="#1f3a93")
     fig.text(0.5, 0.955, "PP P50  |  PP Design High  |  FG Design (same pressure case)   -   with offset range, "
              "number of supporting wells and recommended mud weight per hole section",
@@ -467,6 +467,13 @@ def plot_final(res, wells, path_png):
             ax.text(2.58, z[a] + 15, f"{z[a]:.0f}-{z[b]:.0f} m: {int(nw[a:b + 1].min())}-"
                     f"{int(nw[a:b + 1].max())} wells (medium confidence)",
                     ha="right", va="top", fontsize=8, color="#b35900", style="italic")
+
+    # individual offset wells (thin): PP solid, actual MW dashed, one colour per well
+    wcol = plt.get_cmap("tab10")
+    if show_wells:
+        for k, n in enumerate(WELLS):
+            ax.plot(res["pp"][n], z, color=wcol(k), lw=1.0, alpha=0.8)
+            ax.plot(res["mw"][n], z, color=wcol(k), lw=0.9, ls=(0, (4, 2)), alpha=0.8)
 
     # offset ranges
     ax.fill_betweenx(z, res["pp_low"], res["pp_high"], color="#4a6cf7", alpha=0.16, lw=0)
@@ -562,10 +569,14 @@ def plot_final(res, wells, path_png):
                "Kick (kill MW)", "Casing shoe (approx.)",
                f"Wells >= {CONF_HIGH}: high confidence", f"Wells {CONF_MED}-{CONF_HIGH - 1}: medium",
                f"Wells <= {CONF_MED - 1}: low"]
-    fig.legend(handles, labels, loc="lower center", ncol=3, fontsize=8.2, frameon=True,
+    if show_wells:
+        handles += [Line2D([], [], color=wcol(k), lw=1.6) for k in range(len(WELLS))]
+        labels += [f"{n}: PP solid, MW dashed" for n in WELLS]
+    fig.legend(handles, labels, loc="lower center", ncol=3, fontsize=7.4 if show_wells else 8.2, frameon=True,
                bbox_to_anchor=(0.355, 0.035))
     method_panel(fig, res, box=(0.665, 0.03, 0.32, 0.86))
-    fig.text(0.355, 0.008, "Figure - Balad Field generic PPFG: design curves for approval",
+    fig.text(0.355, 0.008, "Figure - Balad Field generic PPFG: design curves for approval"
+             + (" with the nine offset wells" if show_wells else ""),
              ha="center", fontsize=10, style="italic", fontweight="bold")
     fig.savefig(path_png)
     plt.close(fig)
@@ -976,10 +987,12 @@ def main():
     res = build(wells)
     pngs = [("Chart - Final (approval)", os.path.join(out, "Balad_PPFG_Final.png")),
             ("Chart - QC all wells", os.path.join(out, "Balad_PPFG_QC_AllWells.png")),
+            ("Chart - Final with wells", os.path.join(out, "Balad_PPFG_Final_Wells.png")),
             ("Chart - OBG QC", os.path.join(out, "Balad_OBG_QC.png"))]
     plot_final(res, wells, pngs[0][1])
     plot(res, wells, ebs, pngs[1][1])
-    d_ebs = plot_obg_qc(res, ebs, pngs[2][1])
+    plot_final(res, wells, pngs[2][1], show_wells=True)
+    d_ebs = plot_obg_qc(res, ebs, pngs[3][1])
     export_xlsx(res, wells, ebs, os.path.join(out, "Balad_Unified_PPFG.xlsx"), pngs, d_ebs)
 
     z = res["grid"]
