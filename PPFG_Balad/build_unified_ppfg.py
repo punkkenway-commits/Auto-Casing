@@ -17,12 +17,13 @@ following the standard offset-well "envelope" workflow:
         FG = PP + nu/(1-nu) * (OBG - PP),  nu = 0.25  (same nu as the workbook)
      computed per well with the field OBG, then
         FG Most-Likely = Eaton(PP P50)
-        FG Design Low = lowest calibrated per-well FG, capped by loss zones.
+        FG Design = Eaton applied to PP Design High (same pressure case), capped by loss zones;
+        FG Low = lowest calibrated per-well FG, kept as the weakest-offset reference.
   6. Calibration without LOT/FIT: losses -> upper bound (loss zones), MW drilled without
      losses -> per-well lower bound; kicks / kill MW check PP.
   7. Mud window per hole section: Min MW = PP High + trip margin,
      Max static MW = weakest FG Design in open hole - surge margin - ECD allowance.
-  Outputs: Balad_PPFG_Final.png (approval: P50 / Design High / Design Low, confidence,
+  Outputs: Balad_PPFG_Final.png (approval: P50 / Design High / FG Design, confidence,
   well count, MW per section), Balad_PPFG_QC_AllWells.png, Balad_OBG_QC.png, xlsx.
 
 Usage:
@@ -234,7 +235,12 @@ def build(wells):
     for zn in loss_zones:
         m = (grid >= zn["top"]) & (grid <= zn["base"])
         loss_lim[m] = zn["limit"]
-    fg_design = np.fmin(fg_low, loss_lim)
+    # Design FG must belong to the SAME pressure case as PP Design High.  Pairing the highest PP
+    # of one well with the lowest FG of another well at the same depth creates a false PP > FG
+    # crossover (e.g. 3880-4150 m: Balad-2/3 already overpressured, Balad-1 still normal), a state
+    # no single well shows.  So FG Design = Eaton(PP Design High), capped by the loss zones.
+    fg_env = pp_high + K_EATON * (obg - pp_high)
+    fg_design = np.fmin(fg_env, loss_lim)
 
     # per-depth dynamic allowance from the hole section
     ecd = np.full(grid.size, np.nan)
@@ -243,7 +249,7 @@ def build(wells):
     ecd[np.isnan(ecd)] = ECD_ADD['26"']
     mw_min = pp_high + TRIP_MARGIN_SG
     mw_max = fg_design - SURGE_MARGIN_SG - ecd
-    mw_max_nl = fg_low - SURGE_MARGIN_SG - ecd          # same, ignoring loss zones
+    mw_max_nl = fg_env - SURGE_MARGIN_SG - ecd          # same, ignoring loss zones
 
     # hole-section windows: max static MW must stay below the weakest point of the open hole
     sec = []
@@ -254,16 +260,16 @@ def build(wells):
             continue
         i_pp = np.nanargmax(np.where(m, pp_high, np.nan))
         i_fg = np.nanargmin(np.where(m, fg_design, np.nan))
-        i_nl = np.nanargmin(np.where(m, fg_low, np.nan))
+        i_nl = np.nanargmin(np.where(m, fg_env, np.nan))
         wmw = np.where(m, MW, np.nan)
         rec = dict(hole=hole, casing=csg, top=top, base=base, ecd=ECD_ADD[hole],
                    n_min=int(np.min(nw[m])), n_max=int(np.max(nw[m])),
                    pp_max=pp_high[i_pp], pp_at=grid[i_pp],
                    fg_min=fg_design[i_fg], fg_at=grid[i_fg],
-                   fg_min_nl=fg_low[i_nl], fg_nl_at=grid[i_nl],
+                   fg_min_nl=fg_env[i_nl], fg_nl_at=grid[i_nl],
                    mw_lo=pp_high[i_pp] + TRIP_MARGIN_SG,
                    mw_hi=fg_design[i_fg] - SURGE_MARGIN_SG - ECD_ADD[hole],
-                   mw_hi_nl=fg_low[i_nl] - SURGE_MARGIN_SG - ECD_ADD[hole],
+                   mw_hi_nl=fg_env[i_nl] - SURGE_MARGIN_SG - ECD_ADD[hole],
                    hist_lo=float(np.nanmin(wmw)), hist_hi=float(np.nanmax(wmw)))
         rec["window"] = rec["mw_hi"] - rec["mw_lo"]
         rec["window_nl"] = rec["mw_hi_nl"] - rec["mw_lo"]
@@ -284,7 +290,7 @@ def build(wells):
                 mw_max_nl=mw_max_nl,
                 pp_low=pp_low, pp_ml=pp_ml, pp_high=pp_high,
                 fg_low=fg_low, fg_ml=fg_ml, fg_high=fg_high, loss_lim=loss_lim,
-                loss_zones=loss_zones, fg_design=fg_design,
+                loss_zones=loss_zones, fg_design=fg_design, fg_env=fg_env,
                 mw_min=mw_min, mw_max=mw_max)
 
 
@@ -341,7 +347,8 @@ def plot(res, wells, ebs, path_png):
     ax.plot(res["pp_high"], z, color="#1010d0", lw=1.6, ls="--", label="PP High (offset envelope) - DESIGN")
     ax.plot(res["pp_low"], z, color="#6f8fff", lw=1.1, ls=":", label="PP Low (offset envelope)")
     ax.plot(res["fg_ml"], z, color="#F2A900", lw=2.8, label="FG Most-Likely (Eaton, PP P50)")
-    ax.plot(res["fg_low"], z, color="#C00000", lw=2.3, label="FG Low (calibrated, lowest well)")
+    ax.plot(res["fg_design"], z, color="#C00000", lw=2.3, label="FG Design (Eaton on PP Design High, loss-capped)")
+    ax.plot(res["fg_low"], z, color="#C00000", lw=1.1, ls=(0, (2, 2)), label="FG Low - weakest offset well (reference)")
     first = True
     for zn in res["loss_zones"]:
         ax.plot([zn["limit"]] * 2, [zn["top"], zn["base"]], color="#C00000", lw=3.2,
@@ -384,7 +391,7 @@ def plot(res, wells, ebs, path_png):
                     bbox=dict(fc="#FFFFC8", ec="none", pad=0.5))
     tag(res["obg"], 900, "OBG", "#7B2A0E")
     tag(res["fg_ml"], 1600, "FG ML", "#b07a00")
-    tag(res["fg_low"], 1100, "FG Low", "#C00000", -0.13)
+    tag(res["fg_design"], 1100, "FG Design", "#C00000", -0.17)
     tag(res["pp_ml"], 1600, "PP P50", "#1010d0", -0.17)
 
     # formation tops & casing shoes on the left axis (Faihaa style)
@@ -420,7 +427,7 @@ def plot(res, wells, ebs, path_png):
 
 
 def plot_final(res, wells, path_png):
-    """Approval chart: PP P50, PP Design High, FG Design Low with confidence and well count."""
+    """Approval chart: PP P50, PP Design High, FG Design with confidence and well count."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -447,7 +454,7 @@ def plot_final(res, wells, path_png):
     ax.grid(color="#9a9a9a", lw=0.5)
     fig.text(0.5, 0.972, "BALAD FIELD GENERIC PPFG - DESIGN CURVES", ha="center", fontsize=18,
              fontweight="bold", color="#1f3a93")
-    fig.text(0.5, 0.955, "PP P50  |  PP Design High  |  FG Design Low   -   with offset range, "
+    fig.text(0.5, 0.955, "PP P50  |  PP Design High  |  FG Design (same pressure case)   -   with offset range, "
              "number of supporting wells and recommended mud weight per hole section",
              ha="center", fontsize=10, color="#1f3a93")
 
@@ -481,7 +488,9 @@ def plot_final(res, wells, path_png):
 
     solid_dashed(res["pp_ml"], color="#1010d0", lw=2.6, label="PP P50 (Most-Likely)")
     solid_dashed(res["pp_high"], color="#000080", lw=2.4, ls=(0, (6, 2)), label="PP Design High")
-    solid_dashed(res["fg_design"], color="#C00000", lw=2.6, label="FG Design Low (calibrated)")
+    solid_dashed(res["fg_design"], color="#C00000", lw=2.6, label="FG Design (Eaton on PP Design High, loss-capped)")
+    ax.plot(res["fg_low"], z, color="#C00000", lw=1.0, ls=(0, (2, 2)), alpha=0.8,
+            label="FG Low - weakest offset well (reference)")
 
     # recommended MW per hole section (green step) + window markers
     for k, s_ in enumerate(res["sections"]):
@@ -512,7 +521,7 @@ def plot_final(res, wells, path_png):
         ax.text(arr[i] + dx, d, txt, fontsize=8.5, color=col, fontweight="bold",
                 bbox=dict(fc="#FFFFC8", ec="none", pad=0.5))
     tag(res["obg"], 900, "OBG", "#7B2A0E")
-    tag(res["fg_design"], 1700, "FG Design Low", "#C00000")
+    tag(res["fg_design"], 1700, "FG Design", "#C00000")
     tag(res["pp_ml"], 600, "PP P50", "#1010d0", -0.2)
     tag(res["pp_high"], 3450, "PP Design High", "#000080", -0.33)
 
@@ -646,8 +655,9 @@ def method_panel(fig, res, box=(0.665, 0.03, 0.315, 0.875)):
          "Medium 3-5, Low <= 2 wells."),
         ("5. Fracture gradient (FG)",
          "Eaton (1969): FG = PP + nu/(1-nu) * (OBG - PP), nu = 0.25. "
-         "FG per well with the field OBG, then calibrated (step 6). FG Design Low = lowest "
-         "calibrated FG of all wells, capped by loss zones."),
+         "FG per well with the field OBG, calibrated (step 6). FG Design = Eaton on PP Design "
+         "High (same pressure case, so it never crosses PP), capped by loss zones. FG Low = "
+         "weakest calibrated offset well, shown dashed as a reference."),
         ("6. Calibration (no LOT/FIT available - old wells)",
          "Upper bound: loss events clustered into zones (gap < 300 m), limit = lowest MW with "
          "losses" + ("".join(f"; {z['top']:.0f}-{z['base']:.0f} m = {z['limit']:.2f} sg" for z in lz))
@@ -674,7 +684,7 @@ def method_panel(fig, res, box=(0.665, 0.03, 0.315, 0.875)):
     ]
     pax = fig.add_axes(box)
     hin = box[3] * fig.get_figheight()           # panel height in inches
-    lh = 8.2 * 1.38 / 72 / hin                   # one body line in axes fraction
+    lh = 7.9 * 1.36 / 72 / hin                   # one body line in axes fraction
     pax.set_xlim(0, 1)
     pax.set_ylim(0, 1)
     pax.set_xticks([])
@@ -691,9 +701,9 @@ def method_panel(fig, res, box=(0.665, 0.03, 0.315, 0.875)):
         col = "#a00000" if head in ("Limitations",) else "#1f3a93"
         pax.text(0.03, y, head, fontsize=9.3, fontweight="bold", color=col, va="top")
         y -= 1.45 * lh
-        lines = textwrap.wrap(body, 66)
-        pax.text(0.045, y, "\n".join(lines), fontsize=8.2, va="top", color="#222",
-                 linespacing=1.38)
+        lines = textwrap.wrap(body, 70)
+        pax.text(0.045, y, "\n".join(lines), fontsize=7.9, va="top", color="#222",
+                 linespacing=1.36)
         y -= lh * len(lines) + 1.1 * lh
 
 
@@ -726,7 +736,7 @@ def export_xlsx(res, wells, ebs, path, pngs, d_ebs):
     ws = wb.add_worksheet("Unified PPFG (sg)")
     ws.write(0, 0, "Balad Field - Unified PPFG (EMW, s.g.)  |  10 m grid  |  depth = TVD-RT", TTL)
     hdr = ["Depth (m)", "Depth (ft)", "No. of wells", "OBG", "PP Low", "PP P50 (ML)",
-           "PP High\n(DESIGN)", "FG DESIGN\nmin(FG Low, loss)", "FG ML (Eaton)", "FG High",
+           "PP High\n(DESIGN)", "FG DESIGN\nEaton(PP High), loss-capped", "FG ML (Eaton)", "FG High",
            "Min MW\n(PP High+trip)", "Max static MW\n(FG des.-surge-ECD)", "Window\n(Max-Min)",
            "FG Low\n(calibrated)", "Loss-zone\nlimit", "ECD allow.\n(section)", "Confidence"]
     ws.write_row(2, 0, hdr, H)
@@ -752,7 +762,7 @@ def export_xlsx(res, wells, ebs, path, pngs, d_ebs):
     ch = wb.add_chart(dict(type="scatter", subtype="straight"))
     series = [("OBG", 3, "#7B2A0E", 2.25, "solid"), ("PP P50", 5, "#1010D0", 2.25, "solid"),
               ("PP High (design)", 6, "#1010D0", 1.5, "dash"), ("FG ML", 8, "#F2A900", 2.25, "solid"),
-              ("FG Low (design)", 7, "#C00000", 2.0, "solid")]
+              ("FG Design", 7, "#C00000", 2.0, "solid")]
     for nm, c, col, w, dash in series:
         ch.add_series(dict(name=nm, categories=["Unified PPFG (sg)", 3, c, last, c],
                            values=["Unified PPFG (sg)", 3, 0, last, 0],
@@ -930,7 +940,8 @@ METHOD_AR = """
 6) المعايرة (بدون LOT/FIT لأن الآبار قديمة):
    • حد أعلى: أحداث الـ losses تُجمَّع إلى مناطق (فرق عمق < 300 م)، وحدّ المنطقة = أقل وزن طين حصلت عنده losses.
    • حد أدنى: البئر اللي انحفر عند عمق معيّن بوزن طين MW بدون losses ← FG لذلك البئر عند ذلك العمق ≥ MW (أسلوب Daines 1982 في استخدام بيانات الآبار المجاورة).
-   • FG Design Low = أقل FG معاير بين الآبار، ومحدود بمناطق الـ losses. الـ kicks وأوزان الـ kill للتحقق من الـ PP.
+   • FG Design = معادلة Eaton على PP Design High (نفس حالة الضغط حتى ما يتقاطع وية الـ PP)، ومحدود بمناطق الـ losses.
+   • FG Low = أقل FG معاير بين الآبار، يظهر كخط متقطع مرجعي (خطر لو البئر الجديد بعده بضغط طبيعي). الـ kicks وأوزان الـ kill للتحقق من الـ PP.
    • دراسة EBS-1996 تستخدم 2ν/(1−ν) = ضغط الانهيار (Breakdown) لبئر سليم (Haimson & Fairhurst 1967)، فتُعرض كمرجع فقط.
 7) نافذة الطين لكل مقطع حفر (شيت Hole-section window):
    • Min MW = أعلى PP Design High بالمقطع + 0.03 sg (هامش trip/swab).

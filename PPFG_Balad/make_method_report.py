@@ -104,7 +104,7 @@ def build_report(src, out_dir):
     min&ndash;max range, with the number of supporting wells shown as a confidence measure.</p>
     <p>Fracture gradient was computed for each well with Eaton's equation (&nu; = 0.25) and the field OBG, then calibrated
     with the drilling record because no LOT/FIT exist: mud weights drilled without losses raise a well's FG (lower bound),
-    and loss events cap it (upper bound). <b>FG Design Low</b> is the lowest calibrated FG of the wells, capped by the loss zones
+    and loss events cap it (upper bound). <b>FG Design</b> is Eaton applied to PP Design High &ndash; the same pressure case, so the two design curves never cross &ndash; capped by the loss zones
     ({zone_txt}). Finally the mud-weight window was computed for each hole section with trip, surge and ECD allowances.</p>
   </div>
 </section>""")
@@ -129,7 +129,7 @@ def build_report(src, out_dir):
 <div class="fbox">3. PP statistics per depth: P50, High (max), Low (min), n wells</div></div><div class="arr">&darr;</div>
 <div class="fbox">4. Eaton FG per well: FG = PP + &nu;/(1&minus;&nu;)(OBG &minus; PP), &nu; = 0.25</div><div class="arr">&darr;</div>
 <div class="fbox">5. Calibration: MW drilled without losses (lower bound), loss zones (upper bound)</div><div class="arr">&darr;</div>
-<div class="fbox key">Design curves: PP P50 &middot; PP Design High &middot; FG Design Low &middot; range &middot; confidence</div><div class="arr">&darr;</div>
+<div class="fbox key">Design curves: PP P50 &middot; PP Design High &middot; FG Design &middot; range &middot; confidence</div><div class="arr">&darr;</div>
 <div class="fbox">6. Mud-weight window per hole section (trip, surge, ECD)</div>
 </div>
 </section>""")
@@ -353,8 +353,16 @@ taken from the 1996 study. Both come from the input tables.</li>
     fgex = []
     for d in (500, 1000, 2000, 2800, 3500, 3800, 4000, 4200):
         i = int(d / b.DZ)
-        fgex.append([d, f(r["obg"][i]), f(r["pp_ml"][i]), f(r["fg_ml"][i]), f(r["fg_low"][i]),
-                     f(r["loss_lim"][i]), f"<b>{f(r['fg_design'][i])}</b>"])
+        fgex.append([d, f(r["obg"][i]), f(r["pp_ml"][i]), f(r["pp_high"][i]), f(r["fg_ml"][i]), f(r["fg_low"][i]),
+                     f(r["fg_env"][i]), f(r["loss_lim"][i]), f"<b>{f(r['fg_design'][i])}</b>",
+                     f"{r['fg_design'][i] - r['pp_high'][i]:+.2f}"])
+    i3 = int(3940 / b.DZ)
+    PPw = np.array([r["pp"][n] for n in b.WELLS])
+    cross_rows = []
+    for n in ("Balad-1", "Balad-2", "Balad-3"):
+        j = b.WELLS.index(n)
+        cross_rows.append([n, f(PPw[j, i3]), f(FGw[j, i3])])
+    cross_gap = np.nanmax(PPw[:, i3]) - np.nanmin(FGw[:, i3])
     fb = pp0 + 2 * b.NU / (1 - b.NU) * (obg0 - pp0)
     e2000 = np.interp(2000, ebs[:, 0], ebs[:, 3] / b.PSIFT_PER_SG)
     add(f"""
@@ -380,9 +388,18 @@ Each zone runs from 20 m above the first to 20 m below the last event, and its l
 {table(["Loss zone (m)", "Limit (sg)", "Wells"], zones)}
 <p>Losses in the 2610&ndash;3210 m carbonates may be vugular or natural-fracture losses rather than induced fractures.
 Either way, they are a real ceiling for the mud weight in that interval.</p>
-<h3>5.4 FG Design Low</h3>
-<div class="eq">FG Low(z) = min over wells of FG<sub>well</sub>(z); &nbsp;&nbsp; FG Design(z) = min[ FG Low(z), loss-zone limit(z) ]</div>
-{table(["Depth (m)", "OBG", "PP P50", "FG ML", "FG Low (calibrated)", "Loss limit", "FG Design"], fgex)}
+<h3>5.4 FG Design &ndash; same pressure case as PP Design High</h3>
+<p>Within every single well PP is below FG at every depth (Eaton always gives FG &gt; PP because OBG &gt; PP). A crossover can only appear when the
+highest PP of one well is plotted against the lowest FG of another well at the same depth. That is what happens in the transition zone,
+because the overpressure top is at a different depth in each deep well. At 3940 m:</p>
+{table(["Well", "PP (sg)", "Calibrated FG (sg)"], cross_rows)}
+<p>Taking PP from the overpressured well and FG from the still-normal well would put PP above FG by {cross_gap:.2f} sg &ndash; a state no well shows.
+The design FG is therefore taken from the <b>same pressure case</b> as PP Design High:</p>
+<div class="eq">FG Design(z) = min[ PP<sub>High</sub>(z) + &nu;/(1&minus;&nu;) &middot; (OBG(z) &minus; PP<sub>High</sub>(z)), &nbsp; loss-zone limit(z) ]</div>
+<p>FG Low (the weakest calibrated offset well) is kept as a dashed reference curve. It shows the risk in the transition zone:
+if a new well is still normally pressured where the design weight is already high, the formation may break down at the FG Low value.
+That is a casing-point and real-time pore-pressure-monitoring issue, not a curve to design the window on.</p>
+{table(["Depth (m)", "OBG", "PP P50", "PP High", "FG ML", "FG Low (weakest well)", "FG on PP High", "Loss limit", "FG Design", "FG Design &minus; PP High"], fgex, "small")}
 <p class="note">All values in sg. Note that Balad-1 and Balad-2 were drilled at about 2.25 sg below 4000 m; Eaton with &nu; = 0.25 may underestimate the deep FG,
 which only LOT/FIT data can confirm.</p>
 </section>""")
@@ -418,8 +435,8 @@ Window = {s12['window']:+.3f} sg. Outside the loss zones the weakest FG is {s12[
 (Balad-3, -4, -6). The shallow PP is probably overstated; top hole is drilled at minimum weight with losses expected.</li>
 <li><b>17-1/2&Prime; &ndash; open</b> ({st['17-1/2"']['window']:+.2f} sg).</li>
 <li><b>12-1/4&Prime; &ndash; open except the 2610&ndash;3210 m loss zone.</b> Drill at the minimum weight with LCM ready, which matches the field history (MW 1.17&ndash;1.40 with losses).</li>
-<li><b>8-1/2&Prime; &ndash; closed on paper.</b> The 9-5/8&Prime; shoe at 3596 m lies above the overpressure top (3680&ndash;4000 m), so normally pressured rock below the shoe
-(Eaton FG about 1.57 sg) is open while 2.2 sg mud is needed. Balad-1 and Balad-2 actually drilled this interval at up to 2.25 sg, so either the 9-5/8&Prime; was deeper in those wells
+<li><b>8-1/2&Prime; &ndash; closed on paper.</b> The curves do not cross, but the 9-5/8&Prime; shoe at 3596 m lies above the overpressure top (3680&ndash;4000 m),
+so the weakest open-hole FG ({st['8-1/2"']['fg_min']:.2f} sg at {st['8-1/2"']['fg_at']:.0f} m, just below the shoe) is far below the {st['8-1/2"']['mw_lo']:.2f} sg needed deeper in the same section. Balad-1 and Balad-2 actually drilled this interval at up to 2.25 sg, so either the 9-5/8&Prime; was deeper in those wells
 or the real FG is higher than Eaton predicts. Per-well casing depths or a LOT at the shoe would settle it.</li>
 <li><b>6&Prime; &ndash; closed by {st['6"']['window']:+.2f} sg</b> (only 1&ndash;2 wells; low confidence).</li>
 </ul>
@@ -437,7 +454,8 @@ expect losses, and plan LCM or a contingency string.</p>
         ["Brown curve", "Field OBG integrated from RHOB/DT (Section 3)"],
         ["Cyan dashed", f"Normal hydrostatic 0.465 psi/ft ({b.NORMAL_SG:.2f} sg) from RT"],
         ["Blue solid / navy dashed", "PP P50 / PP Design High (Section 4)"],
-        ["Red solid", "FG Design Low &ndash; calibrated and capped by loss zones (Section 5)"],
+        ["Red solid", "FG Design &ndash; Eaton on PP Design High, capped by loss zones (Section 5)"],
+        ["Red dashed (thin)", "FG Low &ndash; weakest calibrated offset well, reference only"],
         ["Blue / red shaded bands", "Min&ndash;max range of the wells' PP / calibrated FG"],
         ["Green vertical bars + label", "Recommended mud weight for each hole section (Section 6)"],
         ["Dotted vertical lines", "Max static MW per section: green open, orange open except loss zone, red closed"],
@@ -448,7 +466,7 @@ expect losses, and plan LCM or a contingency string.</p>
         ["Black triangles / dotted lines", "Casing shoes (approx.) / formation tops"]])}
 <h3>Using the curves for a new well</h3>
 <ol>
-<li>Read PP Design High and FG Design Low at the planned casing depths, and check the confidence track for those depths.</li>
+<li>Read PP Design High and FG Design at the planned casing depths, and check the confidence track for those depths.</li>
 <li>Use sheet <i>Design (ppg-psi)</i> of Balad_Unified_PPFG.xlsx as the PP/FG/OBG input to the casing-design software.</li>
 <li>Use sheet <i>Hole-section window</i> for the planned mud weights, replacing the assumed &Delta;ECD with hydraulics results.</li>
 <li>Update the curves when new LOT/FIT, casing-depth or pressure data become available (re-run build_unified_ppfg.py).</li>
@@ -485,7 +503,7 @@ Values in the medium- and low-confidence intervals are provisional.</p>
 <section>
 <h2>Appendix A &ndash; Unified PPFG (every 50 m, EMW in sg)</h2>
 <p class="note">Min MW = PP High + 0.03; Max MW = FG Design &minus; 0.03 &minus; &Delta;ECD of the section. The full 10 m table is in sheet <i>Unified PPFG (sg)</i>.</p>
-{table(["Depth (m)", "n", "Conf.", "OBG", "PP Low", "PP P50", "PP High", "FG ML", "FG Low", "Loss limit", "FG Design", "Min MW", "Max MW"], rowsA, "tiny")}
+{table(["Depth (m)", "n", "Conf.", "OBG", "PP Low", "PP P50", "PP High", "FG ML", "FG Low (weakest)", "Loss limit", "FG Design", "Min MW", "Max MW"], rowsA, "tiny")}
 </section>""")
 
     # ============ Appendix B
