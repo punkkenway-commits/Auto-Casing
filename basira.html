@@ -1697,7 +1697,8 @@ function updateUI() {
     <div class="nace-row"><span style="font-size:11px;color:var(--tx2)">SITP (Shut-in Tubing Pressure)</span><span class="mn">${Math.round(CS.SITP).toLocaleString()} psi</span></div>
     <div class="nace-row"><span style="font-size:11px;color:var(--tx2)">NACE MR0175 Status</span><span class="b ${nc.isSour?'fl':'ok'}" style="font-size:12px">${nc.naceStatus}</span></div>
     <div class="nace-row"><span style="font-size:11px;color:var(--tx2)">HPHT Classification</span><span class="b ${nc.isHPHT?'rv':'ok'}">${nc.isHPHT?'HPHT — '+S.temperature+'°F / '+S.reservoirPressure.toLocaleString()+' psi':'Standard Service'}</span></div>
-    <div class="nace-row" style="border:none"><span style="font-size:11px;color:var(--tx2)">Applicable Standard</span><span style="font-size:11px;font-weight:600;color:var(--gold)">${nc.isSour?'NACE MR0175 / ISO 15156':'API 5CT'}${nc.co2Mod||nc.co2Sev?' + ISO 13680':''}</span></div>`;
+    <div class="nace-row" style="border:none"><span style="font-size:11px;color:var(--tx2)">Applicable Standard</span><span style="font-size:11px;font-weight:600;color:var(--gold)">${nc.isSour?'NACE MR0175 / ISO 15156':'API 5CT'}${nc.co2Mod||nc.co2Sev?' + ISO 13680':''}</span></div>
+    <div style="margin-top:10px"><a href="octg_grade_selector.html?mode=comp&p=${Math.round(CS.SITP)}&pu=psig&co2pct=${S.co2/1e4}&h2sppm=${S.h2s}&t=${S.temperature}&tu=F&tb=${S.temperature}&z=${S.tvd}&zu=m" target="_blank" rel="noopener" style="font-size:11px;font-weight:600;color:var(--gold)">Open in OCTG Grade Selector (Sumitomo chart, ISO 15156-2/-3) →</a></div>`;
 
   // Live preview
   const sv=document.getElementById('pv-safe'),ci=document.getElementById('pv-cost-i'),rv=document.getElementById('pv-risk');

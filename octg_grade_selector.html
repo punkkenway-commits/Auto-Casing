@@ -1,0 +1,757 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>BASIRA OCTG Grade Selector</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: tool header band, then a two-column workbench (inputs+result | chart), then evidence sections below. */
+:root{
+  --bg:#eef1f4; --surface:#ffffff; --sunk:#f6f8fa; --ink:#14202b; --muted:#566573; --line:#d3dae1;
+  --accent:#0d5a8a; --accent-ink:#ffffff; --mark:#d4430c; --ok:#1d7a46; --bad:#b4271a; --warn:#9a6200;
+  --ok-bg:#e3f3ea; --bad-bg:#fbe7e4; --warn-bg:#fdf1d9;
+  --z1:#deeff6; --z2:#94d0f5; --z3:#e2f3fd; --z4:#bde1fb; --z5:#cddfa3; --z6:#9fc879; --z7:#dfbed9; --z8:#b28ebe;
+  --zone-ink:#1b2833; --zone-line:#5f6c77; --grid:rgba(20,32,43,.09);
+  --f-display:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e141a; --surface:#151d25; --sunk:#111820; --ink:#e2e9ef; --muted:#93a2b0; --line:#28333e;
+  --accent:#62aee0; --accent-ink:#06121c; --mark:#ff7a3d; --ok:#5cc98b; --bad:#ff8577; --warn:#f0b54a;
+  --ok-bg:#12301f; --bad-bg:#3a1714; --warn-bg:#352708;
+  --z1:#1b2b35; --z2:#1d4c6b; --z3:#192c3a; --z4:#23435d; --z5:#3a4923; --z6:#3f5c25; --z7:#4a3045; --z8:#56396a;
+  --zone-ink:#dce6ee; --zone-line:#8796a3; --grid:rgba(226,233,239,.08); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e141a; --surface:#151d25; --sunk:#111820; --ink:#e2e9ef; --muted:#93a2b0; --line:#28333e;
+  --accent:#62aee0; --accent-ink:#06121c; --mark:#ff7a3d; --ok:#5cc98b; --bad:#ff8577; --warn:#f0b54a;
+  --ok-bg:#12301f; --bad-bg:#3a1714; --warn-bg:#352708;
+  --z1:#1b2b35; --z2:#1d4c6b; --z3:#192c3a; --z4:#23435d; --z5:#3a4923; --z6:#3f5c25; --z7:#4a3045; --z8:#56396a;
+  --zone-ink:#dce6ee; --zone-line:#8796a3; --grid:rgba(226,233,239,.08); color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
+.wrap{max-width:1280px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.band{border-bottom:1px solid var(--line);background:var(--surface)}
+header .wrap{padding-block:18px;display:flex;flex-wrap:wrap;gap:8px 24px;align-items:baseline;justify-content:space-between}
+.brand{font-family:var(--f-display);font-weight:700;font-size:1.65rem;letter-spacing:.01em;margin:0;text-wrap:balance}
+.brand small{display:block;font-family:var(--f-mono);font-weight:400;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.hdr-note{color:var(--muted);font-size:.86rem;max-width:62ch;margin:0}
+main .wrap{padding-block:20px 48px;display:flex;flex-direction:column;gap:22px}
+.bench{display:grid;grid-template-columns:minmax(300px,380px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:920px){.bench{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:18px;min-width:0}
+h2{font-family:var(--f-display);font-weight:600;font-size:1.15rem;margin:0 0 10px;letter-spacing:.01em}
+h3{font-family:var(--f-display);font-weight:600;font-size:1rem;margin:16px 0 8px}
+.lbl{font-family:var(--f-mono);font-size:.7rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.tabs{display:flex;border:1px solid var(--line);border-radius:5px;overflow:hidden;margin-bottom:14px}
+.tabs button{flex:1;font:inherit;font-size:.86rem;padding:8px 6px;border:0;background:var(--sunk);color:var(--muted);cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink);font-weight:600}
+.field{display:grid;grid-template-columns:1fr auto;gap:6px;margin-bottom:12px}
+.field label{grid-column:1/-1;font-size:.84rem;color:var(--muted)}
+.subhead{font-family:var(--f-display);font-weight:600;font-size:.92rem;margin:4px 0 8px;padding-top:10px;border-top:1px dashed var(--line)}
+input,select{font:inherit;font-family:var(--f-mono);font-size:.95rem;color:var(--ink);background:var(--sunk);border:1px solid var(--line);border-radius:4px;padding:8px 10px;min-width:0;width:100%}
+select{width:auto}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.check{display:flex;gap:8px;align-items:flex-start;font-size:.84rem;color:var(--muted);margin:-4px 0 12px;cursor:pointer}
+.check input{width:auto;margin-top:3px}
+.calc{font-family:var(--f-mono);font-size:.8rem;color:var(--muted);background:var(--sunk);border:1px dashed var(--line);border-radius:4px;padding:8px 10px;margin:-2px 0 12px}
+.examples{display:flex;flex-direction:column;gap:6px}
+.examples select{width:100%}
+.result{margin-top:16px;border-top:1px solid var(--line);padding-top:16px}
+.zone-head{display:flex;gap:12px;align-items:flex-start}
+.swatch{flex:none;width:34px;height:34px;border-radius:4px;border:1px solid var(--zone-line)}
+.zone-name{font-family:var(--f-display);font-weight:700;font-size:1.25rem;line-height:1.2;margin:2px 0 2px;text-wrap:balance}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.chip{font-family:var(--f-mono);font-size:.78rem;padding:3px 8px;border-radius:999px;border:1px solid var(--line);background:var(--sunk)}
+.chip.ok{background:var(--ok-bg);color:var(--ok);border-color:transparent}
+.chip.bad{background:var(--bad-bg);color:var(--bad);border-color:transparent}
+.chip.warn{background:var(--warn-bg);color:var(--warn);border-color:transparent}
+.rec{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 4px}
+.rec span{font-family:var(--f-mono);font-weight:500;font-size:.88rem;padding:5px 9px;border-radius:4px;background:var(--accent);color:var(--accent-ink)}
+.pp{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}
+.pp div{background:var(--sunk);border:1px solid var(--line);border-radius:4px;padding:8px 10px}
+.pp b{display:block;font-family:var(--f-mono);font-size:1.05rem;font-weight:500;font-variant-numeric:tabular-nums}
+.pp i{font-style:normal;font-family:var(--f-mono);font-size:.74rem;color:var(--muted)}
+.warns{margin:10px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}
+.warns li{font-size:.84rem;padding:7px 10px;border-left:3px solid var(--warn);background:var(--warn-bg);border-radius:0 4px 4px 0}
+.chart-panel{padding:14px}
+.chart-top{display:flex;flex-wrap:wrap;gap:8px 16px;justify-content:space-between;align-items:center;margin-bottom:8px}
+.chart-top label{font-size:.84rem;color:var(--muted);display:flex;gap:6px;align-items:center;cursor:pointer}
+.chart-top input{width:auto}
+.svgbox{overflow-x:auto}
+svg#chart{display:block;width:100%;min-width:520px;height:auto;cursor:crosshair;font-family:var(--f-mono)}
+.readout{font-family:var(--f-mono);font-size:.78rem;color:var(--muted);min-height:1.2em}
+.tblwrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.86rem}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--f-mono);font-size:.7rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:500}
+td.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.st{font-family:var(--f-mono);font-size:.78rem;white-space:nowrap}
+.st.ok{color:var(--ok)} .st.bad{color:var(--bad)} .st.warn{color:var(--warn)}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+@media (max-width:920px){.two{grid-template-columns:minmax(0,1fr)}}
+.btn{font:inherit;font-size:.8rem;padding:4px 10px;border-radius:4px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--accent);color:var(--accent-ink)}
+.score{font-family:var(--f-display);font-weight:700;font-size:1.05rem}
+.prose{max-width:78ch;font-size:.92rem}
+.prose p{margin:0 0 10px}
+.note{color:var(--muted);font-size:.82rem;margin:10px 0 0}
+ol.src{margin:0;padding-left:20px;font-size:.86rem;display:flex;flex-direction:column;gap:4px}
+a{color:var(--accent)}
+.foot{color:var(--muted);font-size:.8rem;max-width:90ch}
+@media (prefers-reduced-motion:no-preference){#pt{transition:transform .25s ease}}
+</style>
+</head>
+<body>
+
+<header class="band"><div class="wrap">
+  <h1 class="brand"><small>BASIRA · OCTG materials</small>OCTG Grade Selector</h1>
+  <p class="hdr-note">Enter CO₂ and H₂S partial pressures. The tool locates the point on the Sumitomo / Nippon Steel material selection chart, applies the temperature limits from Sumitomo's official catalogue, checks API grades against ISO 15156-2 along the well's temperature profile, and checks the corrosion-resistant alloys against ISO 15156-3.</p>
+</div></header>
+
+<main><div class="wrap">
+<section class="bench">
+  <div class="panel">
+    <h2>Well conditions</h2>
+    <div class="tabs" role="tablist">
+      <button id="tab-pp" role="tab" aria-selected="true">Partial pressures</button>
+      <button id="tab-comp" role="tab" aria-selected="false">From gas composition</button>
+    </div>
+    <div id="mode-pp">
+      <div class="field"><label for="in-co2">CO₂ partial pressure</label><input id="in-co2" type="number" step="any" min="0" value="290"><select id="in-unit" aria-label="Pressure unit"><option>psia</option><option>bar</option><option>kPa</option><option>MPa</option><option>atm</option></select></div>
+      <div class="field"><label for="in-h2s">H₂S partial pressure</label><input id="in-h2s" type="number" step="any" min="0" value="0.4"><span class="lbl" id="unit-echo" style="align-self:center">psia</span></div>
+    </div>
+    <div id="mode-comp" hidden>
+      <div class="field"><label for="in-p">Total pressure (use bubble point or max. shut-in)</label><input id="in-p" type="number" step="any" min="0" value="10000"><select id="in-pu" aria-label="Total pressure unit"><option value="psig">psig</option><option value="psia">psia</option><option value="barg">bar (g)</option><option value="bara">bar (a)</option><option value="MPa">MPa (a)</option></select></div>
+      <div class="field"><label for="in-co2pct">CO₂ content, mol %</label><input id="in-co2pct" type="number" step="any" min="0" value="2.9"><span class="lbl" style="align-self:center">mol %</span></div>
+      <div class="field"><label for="in-h2sppm">H₂S content, ppm (mol)</label><input id="in-h2sppm" type="number" step="any" min="0" value="40"><span class="lbl" style="align-self:center">ppm</span></div>
+      <div class="calc" id="calc-out"></div>
+      <label class="check"><input type="checkbox" id="in-fug"> Use fugacity (Peng-Robinson, balance gas as methane) instead of partial pressure</label>
+    </div>
+    <div class="field"><label for="in-t">Max. service temperature, for CRA limits (blank = use static BHT)</label><input id="in-t" type="number" step="any" value="420"><select id="in-tu" aria-label="Temperature unit"><option value="F">°F</option><option value="C">°C</option></select></div>
+
+    <div class="subhead">Temperature profile, for the ISO 15156-2 check of API grades</div>
+    <div class="field"><label for="in-ts">Min. temperature at surface or mudline</label><input id="in-ts" type="number" step="any"><span class="lbl t-echo" style="align-self:center">°F</span></div>
+    <div class="field"><label for="in-tb">Static bottom-hole temperature</label><input id="in-tb" type="number" step="any"><span class="lbl t-echo" style="align-self:center">°F</span></div>
+    <div class="field"><label for="in-z">String setting depth, TVD</label><input id="in-z" type="number" step="any" min="0"><select id="in-zu" aria-label="Depth unit"><option value="ft">ft</option><option value="m">m</option></select></div>
+
+    <div class="examples"><label class="lbl" for="in-ex">Load a published example</label>
+      <select id="in-ex"><option value="">Choose an example…</option></select></div>
+
+    <div class="result" id="result" aria-live="polite"></div>
+  </div>
+
+  <div class="panel chart-panel">
+    <div class="chart-top">
+      <h2 style="margin:0">Material selection chart</h2>
+      <label><input type="checkbox" id="show-cases"> Show validation cases</label>
+    </div>
+    <div class="svgbox"><svg id="chart" viewBox="0 0 660 570" role="img" aria-label="Log-log chart of CO2 partial pressure against H2S partial pressure with material zones and the current point"></svg></div>
+    <div class="readout" id="readout">Click anywhere on the chart to set the partial pressures.</div>
+  </div>
+</section>
+
+<section class="two">
+  <div class="panel">
+    <h2>Grades in this zone</h2>
+    <div class="tblwrap"><table id="grade-table"></table></div>
+  </div>
+  <div class="panel">
+    <h2>ISO 15156-2 check for API grades</h2>
+    <div id="iso-box"></div>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>ISO 15156-3 check for corrosion-resistant alloys</h2>
+  <div id="iso3-box"></div>
+</section>
+
+<section class="panel">
+  <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;align-items:baseline">
+    <h2>Validation against published examples</h2>
+    <span class="score" id="score"></span>
+  </div>
+  <p class="prose" style="color:var(--muted);margin:0 0 10px">Each case is run live through the same code as the selector above. Partial pressures computed from composition use p = P<sub>abs</sub> × mole fraction, as in the source. <b>Field</b> cases are independent worked or field examples. <b>Rule</b> cases restate a threshold that the tool takes from the same source, so they confirm the code, not the method.</p>
+  <div class="tblwrap"><table id="val-table"></table></div>
+</section>
+
+<section class="two">
+  <div class="panel">
+    <h2>Boundaries: your chart vs. the official catalogue</h2>
+    <div class="prose">
+      <p>The chart you supplied is the version reproduced in Bellarby, <i>Well Completion Design</i> (2009). Its lines were measured by pixel analysis to ±1 px (about 0.02 decade) and then checked against Sumitomo's own <i>Material Selection Guidelines</i> catalogue, which prints the boundaries in MPa, and against nipponsteel.com.</p>
+      <p>Where the catalogue gives a value, the tool uses it. The main boundary correction is the CO₂ line: the official value is 0.02 MPa (2.90 psi), while the reproduction draws it at about 3.4 psia. The larger differences are in the temperature limits of the nickel alloys, listed below.</p>
+    </div>
+    <div class="tblwrap"><table id="bnd-table"></table></div>
+    <h3>Temperature limits: your chart vs. official</h3>
+    <div class="tblwrap"><table id="temp-table"></table></div>
+  </div>
+  <div class="panel">
+    <h2>Limits of this method</h2>
+    <div class="prose">
+      <p>Nippon Steel describes the chart as a general guideline based on CO₂, H₂S and temperature only. Final selection also depends on in-situ pH, chloride content, elemental sulfur and the full well life. This tool does not assess chloride, pH or elemental sulfur.</p>
+      <p>Partial pressure should be taken at the condition that gives the highest value, usually the bubble point for oil wells. At high pressure ISO 15156 recognises fugacity as more accurate than partial pressure. The composition tab computes Peng-Robinson fugacity coefficients, with the balance gas taken as methane, and can plot the fugacities instead.</p>
+      <p>The ISO 15156-2 temperature exemptions for API grades depend on the lowest temperature the pipe sees over its life, not the maximum. The tool takes the static geothermal profile as that minimum. Cool-down from injection or gas expansion is not modelled; enter a lower surface temperature to cover it.</p>
+      <p>Points within 0.1 decade of a boundary are flagged. Treat both neighbouring zones as candidates there.</p>
+    </div>
+    <h3>Sources</h3>
+    <ol class="src" id="src-list"></ol>
+  </div>
+</section>
+<p class="foot">Grade names are Nippon Steel (formerly Sumitomo) SM-series designations and API 5CT grades. Temperature limits are from the official Sumitomo catalogue and Nippon Steel data sheets. ISO 15156-3 limits are transcribed from Annex A and should be checked against a licensed copy of the standard. This tool supports screening and does not replace a materials engineer's qualification.</p>
+</div></main>
+
+<script>
+/* ===== Selection logic (pure functions, no DOM) ===== */
+/* Boundaries per Sumitomo "Material Selection Guidelines" catalogue (MPa values) and Nippon Steel data sheets. psia.
+   Values marked "chart" exist only on the chart drawing and were read from it by pixel analysis. */
+const B = {
+  CO2_L: 2.90,    // 0.02 MPa: carbon steel -> CRA (Sumitomo catalogue; nipponsteel.com selector "> 2.90psi"; NS Tech. Rep. 132)
+  CO2_U: 1450,    // 10 MPa: 13Cr ceiling / SM2550 floor (chart)
+  H_SOUR: 0.0435, // 0.0003 MPa = 0.3 kPa (catalogue; ISO 15156-2 states 0.3 kPa = 0.05 psi)
+  H_13S: 0.435,   // 0.003 MPa: SM13CRS ceiling (catalogue)
+  H_DX: 1.45,     // 0.01 MPa: high-strength duplex ceiling (catalogue)
+  H_NI: 14.5,     // 0.1 MPa = 1 bar: only austenitic Fe / Ni alloys above (NS SM2535/SM2550 data sheets)
+  H_2550: 1450    // 10 MPa: SM2550 floor (chart)
+};
+const C2F = c => Math.round(c * 9 / 5 + 32);
+const F2C = f => (f - 32) * 5 / 9;
+const INF = Infinity;
+/* grade: [name, Tmax °F (null = no limit stated), basis] */
+const ZONES = {
+  Z1: { name: "Sweet service: carbon and low-alloy steel", family: "Carbon / low-alloy steel (with inhibitor)", color: "z1",
+        grades: [["SM 95G",null],["API J55",null],["API N80Q",null],["API P110 (Q125-1)",null]], next: [] },
+  Z2: { name: "Sour service: SSC-resistant low-alloy steel", family: "Sour-service low-alloy steel", color: "z2",
+        grades: [], next: [] },
+  Z3: { name: "CO₂ corrosion: martensitic 13Cr", family: "13Cr martensitic stainless", color: "z3",
+        grades: [["SM 13CR-80, 85",C2F(150)],["SM 13CRI-80, 110",C2F(150)],["SM 13CRM-95, 110",C2F(180)]], next: ["Z4","Z5","Z7","Z8","Z9"] },
+  Z4: { name: "CO₂ + trace H₂S: super 13Cr", family: "Super 13Cr (2% Mo)", color: "z4",
+        grades: [["SM 13CRS-95, 110",C2F(180)]], next: ["Z5","Z7","Z8","Z9"] },
+  Z5: { name: "CO₂ + mild H₂S: high-strength duplex", family: "22Cr / 25Cr duplex, cold-worked", color: "z5",
+        grades: [["SM 22CR-110, 125",C2F(200)],["SM 25CR-110, 125",C2F(250)],["SM 25CRW-125",C2F(250)]], next: ["Z7","Z8","Z9"] },
+  Z6: { name: "CO₂ + moderate H₂S: lower-strength duplex", family: "22Cr / 25Cr duplex, low strength", color: "z6",
+        grades: [["SM 22CR-65",C2F(200)],["SM 25CR-75",C2F(250)],["SM 25CRW-80",C2F(250)]], next: ["Z7","Z8","Z9"] },
+  Z7: { name: "CO₂ + high H₂S: austenitic Fe-Ni / Ni alloys (3% Mo)", family: "Fe-Ni / Ni alloys, 3% Mo", color: "z7",
+        grades: [["SM 2535-110, 125",300],["SM 2035-110, 125",300],["SM 2242-110, 125",300]], next: ["Z8","Z9"] },
+  Z8: { name: "Very high CO₂ and H₂S: Ni-base alloy (6% Mo)", family: "Ni-base alloy, 6% Mo", color: "z8",
+        grades: [["SM 2550-110, 125",350]], next: ["Z9"] },
+  Z9: { name: "Ni-base alloys, 9–12% Mo (temperature upgrade, also for free sulfur)", family: "Ni-base alloy, 9–12% Mo", color: "z8", virtual: true,
+        grades: [["SM 2050",400],["SM C276",450]], next: [] }
+};
+const NOTE_T = { "SM 2242-110, 125": "No limit printed in catalogue; 3% Mo class limit applied" };
+
+/* Sour low-alloy grades: H2S limit (psia), T limit (°F) from Sumitomo catalogue / Nippon Steel data sheets / ISO 15156-2 */
+const SOUR_GRADES = [
+  { g: "SM 80S / SM-80XS", h: INF, t: null, note: "Unlimited H₂S; tested to 10 bar (NS data sheet)" },
+  { g: "SM 90S / SM-90XS", h: INF, t: null, note: "Unlimited H₂S; tested to 10 bar (NS data sheet)" },
+  { g: "SM 95S", h: INF, t: null, note: "Unlimited H₂S; tested to 10 bar (NS data sheet)" },
+  { g: "SM C100", h: INF, t: null, note: "In catalogue sour group, no limit printed" },
+  { g: "SM C110", h: 14.5, t: null, note: "NS recommends ≤1 bar H₂S at all temperatures" },
+  { g: "SM 110S", h: INF, t: C2F(150), note: "Catalogue: ≤150°C; H₂S limit not published, confirm with mill", check: true },
+  { g: "SM 125S", h: 0.435, t: C2F(150), note: "Catalogue: ≤150°C; QC reference 0.03 bar H₂S at pH 3.5" },
+  { g: "API L80 Type 1", h: INF, t: null, note: "ISO 15156-2: all temperatures" },
+  { g: "API C90 Type 1", h: INF, t: null, note: "ISO 15156-2: all temperatures" },
+  { g: "API T95 Type 1", h: INF, t: null, note: "ISO 15156-2: all temperatures" }
+];
+
+/* ISO 15156-2 / NACE MR0175 temperature rule for API casing & tubing (via Devon/EPA, AMPP, Nippon Steel).
+   tmin is the lowest temperature the pipe sees over its life (shut-in, cool-down), not the max service temperature. */
+const ISO_API = [
+  { g: "H40, J55, K55, M65", tmin: null },
+  { g: "L80 Type 1, C90 Type 1, T95 Type 1", tmin: null },
+  { g: "N80 (Q&T), C95", tmin: 150 },
+  { g: "C110 (API)", tmin: 150, alt: "or SSC Region 1 at any temperature" },
+  { g: "P110", tmin: 175 },
+  { g: "Q125 Type 1", tmin: 225 }
+];
+
+/* ISO 15156-3 Annex A environmental limits, pH2S and temperature only. rows: [Tmax °C (null = any), pH2S max kPa].
+   A grade is inside the default limits if one row covers both values. Chloride, in-situ pH and elemental sulfur are not
+   assessed (no elemental sulfur assumed). Nickel-alloy types per ISO 15156-3: 4c ≥19.5Cr ≥29.5Ni ≥2.5Mo; 4d ≥19Cr ≥45Ni ≥6Mo;
+   4e ≥14.5Cr ≥52Ni ≥12Mo. Duplex PREN from nominal composition (25CRW counts W as 0.5 Mo). */
+const NI_4C = [[232,200],[218,700],[204,1000],[177,1400],[132,INF]];
+const NI_4D = [...NI_4C, [218,2000],[149,INF]];
+const ISO3_FAM = {
+  mart: { type: "Martensitic stainless, tubulars (A.6)", rows: [[null,10]], note: "Also requires in-situ pH ≥ 3.5 (not assessed)" },
+  dx35: { type: "Duplex, 30 ≤ PREN ≤ 40 (A.7)", rows: [[232,10]] },
+  dx40: { type: "Duplex, 40 < PREN ≤ 45 (A.7)", rows: [[232,20]] },
+  ni4c: { type: "Ni alloy type 4c, cold-worked (A.4)", rows: NI_4C },
+  ni4d: { type: "Ni alloy type 4d, cold-worked (A.4)", rows: NI_4D },
+  ni4e: { type: "Ni alloy type 4e, cold-worked (A.4)", rows: [...NI_4D, [232,7000],[204,INF]] }
+};
+const ISO3_MAP = {
+  "SM 13CR-80, 85": "mart", "SM 13CRI-80, 110": "mart", "SM 13CRM-95, 110": "mart", "SM 13CRS-95, 110": "mart",
+  "SM 22CR-110, 125": "dx35", "SM 22CR-65": "dx35", "SM 25CR-110, 125": "dx35", "SM 25CR-75": "dx35",
+  "SM 25CRW-125": "dx40", "SM 25CRW-80": "dx40",
+  "SM 2535-110, 125": "ni4c", "SM 2035-110, 125": "ni4c", "SM 2242-110, 125": "ni4c",
+  "SM 2550-110, 125": "ni4d", "SM 2050": "ni4d", "SM C276": "ni4e"
+};
+const PSI_PER_KPA = 0.145038;
+
+/* h2s psia, T °F or null. status: ok | bad | needT; reason (when bad): h2s | temp */
+function iso3Check(grade, h2s, T) {
+  const fam = ISO3_FAM[ISO3_MAP[grade]];
+  if (!fam) return null;
+  const kPa = h2s / PSI_PER_KPA;
+  const cover = fam.rows.filter(([, p]) => kPa <= p);
+  const maxKPa = Math.max(...fam.rows.map(r => r[1]));
+  let status, reason = null, tmaxC = null;
+  if (!cover.length) { status = "bad"; reason = "h2s"; }
+  else {
+    tmaxC = cover.some(([t]) => t == null) ? null : Math.max(...cover.map(([t]) => t));
+    if (tmaxC == null) status = "ok";
+    else if (T == null) status = "needT";
+    else if (F2C(T) <= tmaxC) status = "ok";
+    else { status = "bad"; reason = "temp"; }
+  }
+  return { grade, type: fam.type, note: fam.note, rows: fam.rows, kPa, maxKPa, tmaxC, status, reason, ok: status === "ok" };
+}
+
+/* prof: { Ts, Tb } °F (min. surface/mudline and static bottom-hole), z ft (TVD). Linear static profile.
+   status: all (whole string) | below (only below `from` ft) | never | needT */
+function isoApiCheck(prof) {
+  const p = prof || {};
+  const full = p.Ts != null && p.Tb != null && p.z != null && p.z > 0;
+  return ISO_API.map(a => {
+    let status, from = null;
+    if (a.tmin == null || (p.Ts != null && p.Ts >= a.tmin)) { status = "all"; from = 0; }
+    else if (!full) status = "needT";
+    else if (p.Tb < a.tmin) status = "never";
+    else { status = "below"; from = p.z * (a.tmin - p.Ts) / (p.Tb - p.Ts); }
+    return { g: a.g, tmin: a.tmin, alt: a.alt, status, from, ok: status === "all" };
+  });
+}
+
+function classify(co2, h2s) {
+  if (co2 < B.CO2_L) return h2s < B.H_SOUR ? "Z1" : "Z2";
+  if (h2s >= B.H_2550 && co2 >= B.CO2_U) return "Z8";
+  if (h2s >= B.H_NI) return "Z7";
+  if (h2s >= B.H_DX) return "Z6";
+  if (co2 >= B.CO2_U) return "Z5";
+  if (h2s >= B.H_13S) return "Z5";
+  if (h2s >= B.H_SOUR) return "Z4";
+  return "Z3";
+}
+
+function nearZones(co2, h2s) {
+  const z = classify(co2, h2s), f = Math.pow(10, 0.1), out = new Set();
+  const c = Math.max(co2, 1e-6), h = Math.max(h2s, 1e-6);
+  [[c * f, h], [c / f, h], [c, h * f], [c, h / f]].forEach(([a, b]) => { const n = classify(a, b); if (n !== z) out.add(n); });
+  return [...out];
+}
+
+/* T = max. service temperature °F or null; prof = temperature profile for the ISO 15156-2 check (see isoApiCheck) */
+function evaluate(co2, h2s, T, prof) {
+  const zone = classify(co2, h2s);
+  const sour = h2s >= B.H_SOUR;
+  const res = { zone, sour, near: nearZones(co2, h2s), table: [], rec: null, recZone: null, warnings: [], iso: null, iso3: null };
+  if (zone === "Z2") {
+    res.table = SOUR_GRADES.map(s => { const hOk = h2s <= s.h, tOk = s.t == null || T == null || T <= s.t;
+      return { g: s.g, ok: hOk && tOk, check: !!s.check || (s.t != null && T == null), why: (!tOk ? `${T.toFixed(0)}°F exceeds ${s.t}°F. ` : "") + s.note }; });
+    res.recZone = "Z2";
+    res.rec = res.table.filter(r => r.ok).map(r => r.g);
+  } else {
+    res.table = ZONES[zone].grades.map(([g, t]) => ({ g, tmax: t, ok: t == null || T == null || T <= t,
+      why: t == null ? "No limit stated" : T == null ? `Limit ≤${t}°F` : (T <= t ? `${T.toFixed(0)}°F ≤ ${t}°F` : `${T.toFixed(0)}°F exceeds ${t}°F`) }));
+    const chain = [zone, ...ZONES[zone].next];
+    for (const zid of chain) {
+      const ok = ZONES[zid].grades.filter(([g, t]) => t == null || T == null || T <= t).map(([g]) => g);
+      if (ok.length) { res.recZone = zid; res.rec = ok; break; }
+    }
+    if (!res.rec) {
+      res.rec = [];
+      res.warnings.push("Temperature exceeds every grade's limit on the upgrade path (highest is SM C276, ≤450°F / 232°C). Outside the catalogue envelope; refer to a materials engineer.");
+    }
+    if (res.recZone && res.recZone !== zone)
+      res.warnings.push(`Chart-zone grades fail the temperature limit. Upgraded to the next more resistant family: ${ZONES[res.recZone].family}.`);
+    if (zone !== "Z1") {
+      const names = [...new Set([...ZONES[zone].grades.map(([g]) => g), ...res.rec])];
+      res.iso3 = names.map(g => iso3Check(g, h2s, T)).filter(Boolean);
+      const fail = res.iso3.filter(c => res.rec.includes(c.grade) && c.status === "bad").map(c => c.grade);
+      if (fail.length)
+        res.warnings.push(`${fail.join(", ")} ${fail.length > 1 ? "are" : "is"} outside the ISO 15156-3 default limits at this pH₂S and temperature. Use only with qualification testing to ISO 15156-3 Annex B or mill data for these conditions.`);
+    }
+  }
+  if (sour) res.iso = isoApiCheck(prof);
+  if (zone === "Z1") res.warnings.push("Sumitomo catalogue places carbon and low-alloy steel in this zone with corrosion inhibitor.");
+  if (zone === "Z1" || zone === "Z2") {
+    if (co2 >= 0.5) res.warnings.push("Low-alloy steel has no CO₂ weight-loss resistance; consider inhibition or corrosion allowance (NS data sheets).");
+  }
+  if ((zone === "Z4" || zone === "Z5") && h2s <= 1.5)
+    res.warnings.push("ISO 15156-3 (A.6) allows martensitic 13Cr tubulars up to 10 kPa (1.5 psia) H₂S at pH ≥ 3.5, so the chart is the more conservative of the two. Check in-situ pH before upgrading.");
+  return res;
+}
+
+/* Units */
+const P_TO_PSIA = { psia: 1, bar: 14.5038, kPa: 0.145038, MPa: 145.038, atm: 14.6959 };
+function toPsia(v, u) { return v * P_TO_PSIA[u]; }
+/* total-pressure units: [psia per unit, offset to absolute psia] */
+const P_TOTAL = { psig: [1, 14.7], psia: [1, 0], barg: [14.5038, 14.7], bara: [14.5038, 0], MPa: [145.038, 0] };
+function partialFromComposition(pTotal, pUnit, co2Pct, h2sPpm) {
+  const [f, off] = P_TOTAL[pUnit];
+  const p = pTotal * f + off;
+  return { pAbs: p, co2: p * co2Pct / 100, h2s: p * h2sPpm / 1e6 };
+}
+
+/* Peng-Robinson (1976) fugacity of CO2 and H2S in a CH4 / CO2 / H2S gas. [Tc K, Pc Pa, acentric factor] */
+const PR_COMP = { CH4: [190.56, 4.599e6, 0.011], CO2: [304.13, 7.377e6, 0.224], H2S: [373.1, 8.963e6, 0.090] };
+const PR_KIJ = { "CH4|CO2": 0.0919, "CH4|H2S": 0.08, "CO2|H2S": 0.097 };
+/* real roots of z³ + a z² + b z + c */
+function cubicRoots(a, b, c) {
+  const q = (a * a - 3 * b) / 9, r = (2 * a * a * a - 9 * a * b + 27 * c) / 54;
+  if (r * r < q * q * q) {
+    const th = Math.acos(r / Math.sqrt(q * q * q)), s = -2 * Math.sqrt(q);
+    return [s * Math.cos(th / 3) - a / 3, s * Math.cos((th + 2 * Math.PI) / 3) - a / 3, s * Math.cos((th - 2 * Math.PI) / 3) - a / 3];
+  }
+  const A = -Math.sign(r) * Math.cbrt(Math.abs(r) + Math.sqrt(r * r - q * q * q)), Bq = A === 0 ? 0 : q / A;
+  return [A + Bq - a / 3];
+}
+/* pPsia absolute, TF °F, mole fractions. Returns gas-phase Z, fugacity coefficients and fugacities (psia). */
+function prFugacity(pPsia, TF, yCO2, yH2S) {
+  const R = 8.314462, T = F2C(TF) + 273.15, P = pPsia * 6894.757;
+  const names = ["CH4", "CO2", "H2S"], y = [Math.max(1 - yCO2 - yH2S, 0), yCO2, yH2S];
+  const a = [], b = [];
+  names.forEach((n, i) => {
+    const [Tc, Pc, w] = PR_COMP[n], k = 0.37464 + 1.54226 * w - 0.26992 * w * w;
+    a[i] = 0.45724 * R * R * Tc * Tc / Pc * (1 + k * (1 - Math.sqrt(T / Tc))) ** 2;
+    b[i] = 0.07780 * R * Tc / Pc;
+  });
+  const aij = (i, j) => Math.sqrt(a[i] * a[j]) * (1 - (i === j ? 0 : PR_KIJ[names[Math.min(i, j)] + "|" + names[Math.max(i, j)]]));
+  let am = 0, bm = 0;
+  for (let i = 0; i < 3; i++) { bm += y[i] * b[i]; for (let j = 0; j < 3; j++) am += y[i] * y[j] * aij(i, j); }
+  const A = am * P / (R * T) ** 2, Bc = bm * P / (R * T);
+  const Z = Math.max(...cubicRoots(-(1 - Bc), A - 3 * Bc * Bc - 2 * Bc, -(A * Bc - Bc * Bc - Bc ** 3)).filter(z => z > Bc));
+  const s2 = Math.SQRT2, L = Math.log((Z + (1 + s2) * Bc) / (Z + (1 - s2) * Bc));
+  const phi = i => {
+    const sum = y.reduce((s, yj, j) => s + yj * aij(i, j), 0);
+    return Math.exp(b[i] / bm * (Z - 1) - Math.log(Z - Bc) - A / (2 * s2 * Bc) * (2 * sum / am - b[i] / bm) * L);
+  };
+  const phiCO2 = phi(1), phiH2S = phi(2);
+  return { Z, phiCO2, phiH2S, fCO2: phiCO2 * yCO2 * pPsia, fH2S: phiH2S * yH2S * pPsia };
+}
+
+/* Published examples. kind: field = independent worked/field example; rule = restates a threshold taken from the same source.
+   test returns true (agrees), "partial" or false. */
+const CASES = [
+  { id: "df", kind: "field", title: "HPHT gas well, worked example", src: "DrillingFormulas.com (2016), after Bellarby (2009), Byrom (2014)",
+    url: "https://www.drillingformulas.com/tubular-material-selection-for-hthp-well-with-example-calculation/",
+    input: { mode: "comp", p: 10000, pu: "psig", co2pct: 2.9, h2sppm: 40, T: 420, tu: "F" },
+    published: "Chart: SM 13CRS. 216°C too hot for 13CRS, so final pick SM 25CR / 25CRW-110, 125",
+    test: r => r.zone === "Z4" && r.recZone === "Z5" && r.rec.some(g => g.includes("25CR")) },
+  { id: "w55", kind: "field", title: "Oil well at bubble point, 70°C", src: "Webster, 55 and North (2021)",
+    url: "https://55andnorth.com/2021/01/06/a-simplified-workflow-for-completion-tubing-metallurgy-selection/",
+    input: { mode: "pp", co2: 10, h2s: 0.582, u: "psia", T: 70, tu: "C" },
+    published: "Lands in the middle of the 22Cr region",
+    test: r => r.zone === "Z5" && r.rec.some(g => g.includes("22CR")) },
+  { id: "l1a", kind: "field", title: "L1 offshore gas field, low end", src: "FDMP 19(2), tubing selection for L1 gas field",
+    url: "https://www.techscience.com/fdmp/v19n2/49465/html",
+    input: { mode: "pp", co2: 0.08, h2s: 0, u: "MPa", T: 92.9, tu: "C" },
+    published: "No H₂S, pCO₂ 0.08 MPa, 92.9°C: 13Cr selected",
+    test: r => r.zone === "Z3" && r.recZone === "Z3" },
+  { id: "l1b", kind: "field", title: "L1 offshore gas field, high end", src: "FDMP 19(2), tubing selection for L1 gas field",
+    url: "https://www.techscience.com/fdmp/v19n2/49465/html",
+    input: { mode: "pp", co2: 0.69, h2s: 0, u: "MPa", T: 92.9, tu: "C" },
+    published: "No H₂S, pCO₂ 0.69 MPa, 92.9°C: 13Cr selected",
+    test: r => r.zone === "Z3" && r.recZone === "Z3" },
+  { id: "hp", kind: "field", title: "15,000 psig HP well with 3.5 ppm H₂S", src: "Hart Energy E&P, NACE MR0175 commentary",
+    url: "https://hartenergy.com/ep/exclusives/nace-mr0175iso-15156-becoming-irrelevant-16605",
+    input: { mode: "comp", p: 15000, pu: "psig", co2pct: 0, h2sppm: 3.5, T: null, tu: "F" },
+    published: "3.5 ppm already reaches 0.05 psia, so the well is sour. Q125 has no SSC resistance; heavier-wall C110 used",
+    test: r => r.zone === "Z2" && r.sour && r.iso && !r.iso.find(a => a.g.startsWith("Q125")).ok && r.rec.some(g => g.includes("C110")) },
+  { id: "mb", kind: "field", title: "Mobile Bay deep sour gas", src: "Nickel Institute, Control of corrosion in oil and gas production tubing",
+    url: "https://nickelinstitute.org/media/8daa78400c08ba5/14052_controlofcorrosioninoilandgasproductiontubing.pdf",
+    input: { mode: "pp", co2: 500, h2s: 1100, u: "psia", T: null, tu: "F" },
+    published: "pCO₂ ≈ 500 psi, pH₂S ≈ 1100 psi: Ni alloys C-276 and G-50 used",
+    note: "Same family (Ni alloys). The source gives no temperature or sulfur data, so the tool stops at the 3% Mo class; the C-276 / G-50 class follows only above 350°F or with elemental sulfur.",
+    test: r => r.zone !== "Z7" ? false : r.rec.some(g => /2050|C276/.test(g)) ? true : "partial" },
+  { id: "ns", kind: "rule", title: "H₂S above 1 bar rule", src: "Nippon Steel SM2535 / SM2550 data sheets",
+    url: "https://www.tubular.nipponsteel.com/octg-material/data-sheet/sm2535-110",
+    input: { mode: "pp", co2: 5, h2s: 1.2, u: "bar", T: 250, tu: "F" },
+    published: "Above 1.0 bar H₂S only austenitic Fe-base or Ni-base alloys are a solution",
+    test: r => r.zone === "Z7" },
+  { id: "co2", kind: "rule", title: "CO₂ just above 2.90 psi", src: "Nippon Steel material selection tool; NS Technical Report 132 (2025)",
+    url: "https://www.tubular-v2.nipponsteel.com/octg-material/material-selection",
+    input: { mode: "pp", co2: 3.1, h2s: 0, u: "psia", T: 150, tu: "F" },
+    published: "pCO₂ > 2.90 psi (0.02 MPa): carbon / low-alloy steel no longer selected, high-alloy (13Cr) required",
+    test: r => r.zone === "Z3" },
+  { id: "iso", kind: "rule", title: "Sour threshold, 0.06 psia", src: "ISO 15156-2 clause 7.1.2 (pH₂S ≥ 0.3 kPa)",
+    url: "https://www.standards.govt.nz/shop/ISO-15156-22020",
+    input: { mode: "pp", co2: 1, h2s: 0.06, u: "psia", T: 150, tu: "F" },
+    published: "pH₂S ≥ 0.05 psia: SSC-resistant steel required",
+    test: r => r.zone === "Z2" && r.sour },
+  { id: "iso0", kind: "rule", title: "Below threshold, 0.04 psia", src: "ISO 15156-2 clause 7.1.1 (pH₂S < 0.3 kPa)",
+    url: "https://www.standards.govt.nz/shop/ISO-15156-22020",
+    input: { mode: "pp", co2: 1, h2s: 0.04, u: "psia", T: 150, tu: "F" },
+    published: "pH₂S < 0.05 psia: no SSC precautions required",
+    test: r => r.zone === "Z1" && !r.sour }
+];
+
+function caseInputs(c) {
+  const i = c.input; let co2, h2s, pAbs = null;
+  if (i.mode === "comp") { const r = partialFromComposition(i.p, i.pu, i.co2pct, i.h2sppm); co2 = r.co2; h2s = r.h2s; pAbs = r.pAbs; }
+  else { co2 = toPsia(i.co2, i.u); h2s = toPsia(i.h2s, i.u); }
+  const toF = v => v == null ? null : (i.tu === "C" ? v * 9 / 5 + 32 : v);
+  const prof = { Ts: toF(i.ts), Tb: toF(i.tb), z: i.z == null ? null : (i.zu === "m" ? i.z * 3.28084 : i.z) };
+  return { co2, h2s, T: toF(i.T), prof, pAbs };
+}
+
+if (typeof module !== "undefined") module.exports = { B, ZONES, SOUR_GRADES, ISO_API, ISO3_FAM, ISO3_MAP, classify, evaluate, iso3Check, isoApiCheck,
+  prFugacity, cubicRoots, CASES, caseInputs, toPsia, partialFromComposition };
+
+</script>
+<script>
+(function(){
+const $ = id => document.getElementById(id);
+const NS = "http://www.w3.org/2000/svg";
+const X0=-2.85,X1=5.15,Y0=-2.7,Y1=5.07;           // log10 psia ranges of the original chart frame
+const L=78,T=14,R=646,Bt=500;                     // plot rectangle in viewBox units
+const sx = v => L + (Math.log10(v)-X0)/(X1-X0)*(R-L);
+const sy = v => Bt - (Math.log10(v)-Y0)/(Y1-Y0)*(Bt-T);
+const XMIN=10**X0,XMAX=10**X1,YMIN=10**Y0,YMAX=10**Y1;
+const fmt = v => { if(v===0) return "0"; const a=Math.abs(v); return a>=1000? v.toFixed(0) : a>=100? v.toFixed(1) : a>=1? v.toFixed(2) : a>=0.01? v.toFixed(3) : v.toPrecision(2); };
+const sup = n => String(n).replace(/-/g,"⁻").replace(/\d/g,d=>"⁰¹²³⁴⁵⁶⁷⁸⁹"[d]);
+
+function el(tag, attrs, text){ const e=document.createElementNS(NS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); if(text!=null) e.textContent=text; return e; }
+
+/* ---------- static chart ---------- */
+const svg=$("chart");
+function rect(x0,x1,y0,y1,fill){ return el("rect",{x:sx(x0),y:sy(y1),width:sx(x1)-sx(x0),height:sy(y0)-sy(y1),fill,stroke:"var(--zone-line)","stroke-width":1}); }
+function label(x,y,lines,size){ const t=el("text",{x,y,fill:"var(--zone-ink)","font-size":size||11}); lines.forEach((s,i)=>{ const ts=el("tspan",{x,dy:i?"1.25em":0},s); t.appendChild(ts);}); return t; }
+function drawStatic(){
+  const defs=el("defs",{}); const g=el("linearGradient",{id:"sourfade",x1:0,x2:1,y1:0,y2:0});
+  g.appendChild(el("stop",{offset:"0%","stop-color":"var(--z2)"})); g.appendChild(el("stop",{offset:"38%","stop-color":"var(--z2)"}));
+  g.appendChild(el("stop",{offset:"100%","stop-color":"var(--surface)"})); defs.appendChild(g); svg.appendChild(defs);
+  const zones=el("g",{id:"zones"});
+  zones.appendChild(rect(XMIN,B.H_SOUR,YMIN,B.CO2_L,"var(--z1)"));
+  const s=rect(B.H_SOUR,XMAX,YMIN,B.CO2_L,"url(#sourfade)"); zones.appendChild(s);
+  zones.appendChild(rect(XMIN,B.H_SOUR,B.CO2_L,B.CO2_U,"var(--z3)"));
+  zones.appendChild(rect(B.H_SOUR,B.H_13S,B.CO2_L,B.CO2_U,"var(--z4)"));
+  const p5=`${sx(XMIN)},${sy(YMAX)} ${sx(B.H_DX)},${sy(YMAX)} ${sx(B.H_DX)},${sy(B.CO2_L)} ${sx(B.H_13S)},${sy(B.CO2_L)} ${sx(B.H_13S)},${sy(B.CO2_U)} ${sx(XMIN)},${sy(B.CO2_U)}`;
+  zones.appendChild(el("polygon",{points:p5,fill:"var(--z5)",stroke:"var(--zone-line)","stroke-width":1}));
+  zones.appendChild(rect(B.H_DX,B.H_NI,B.CO2_L,YMAX,"var(--z6)"));
+  zones.appendChild(rect(B.H_NI,XMAX,B.CO2_L,YMAX,"var(--z7)"));
+  zones.appendChild(rect(B.H_2550,XMAX,B.CO2_U,YMAX,"var(--z8)"));
+  svg.appendChild(zones);
+  // grid + ticks
+  const grid=el("g",{});
+  for(let d=-2; d<=5; d++){ const x=sx(10**d); grid.appendChild(el("line",{x1:x,x2:x,y1:T,y2:Bt,stroke:"var(--grid)"}));
+    grid.appendChild(el("line",{x1:x,x2:x,y1:Bt,y2:Bt+6,stroke:"var(--muted)"}));
+    grid.appendChild(el("text",{x,y:Bt+22,"text-anchor":"middle","font-size":12,fill:"var(--ink)"},d===0?"1":d===1?"10":"10"+sup(d))); }
+  for(let d=-2; d<=5; d++){ if(10**d>YMAX) continue; const y=sy(10**d); grid.appendChild(el("line",{x1:L,x2:R,y1:y,y2:y,stroke:"var(--grid)"}));
+    grid.appendChild(el("line",{x1:L-6,x2:L,y1:y,y2:y,stroke:"var(--muted)"}));
+    grid.appendChild(el("text",{x:L-10,y:y+4,"text-anchor":"end","font-size":12,fill:"var(--ink)"},d===0?"1":d===1?"10":"10"+sup(d))); }
+  svg.appendChild(grid);
+  svg.appendChild(el("rect",{x:L,y:T,width:R-L,height:Bt-T,fill:"none",stroke:"var(--zone-line)","stroke-width":1.2}));
+  svg.appendChild(el("text",{x:(L+R)/2,y:Bt+46,"text-anchor":"middle","font-size":13,fill:"var(--ink)","font-family":"var(--f-body)"},"Partial pressure of H₂S (psia)"));
+  svg.appendChild(el("text",{x:18,y:(T+Bt)/2,"text-anchor":"middle","font-size":13,fill:"var(--ink)","font-family":"var(--f-body)",transform:`rotate(-90 18 ${(T+Bt)/2})`},"Partial pressure of CO₂ (psia)"));
+  // zone labels (as printed on the chart)
+  const lab=el("g",{"pointer-events":"none"});
+  lab.appendChild(label(sx(XMIN)+5,sy(YMAX)+16,["SM 25CRW-125 (≤482°F)","SM 25CR-110, 125 (≤482°F)","SM 22CR-110, 125 (≤392°F)"],10.5));
+  lab.appendChild(label(sx(B.H_DX)+4,sy(YMAX)+16,["SM 25CRW-80","SM 25CR-75","(≤482°F)","SM 22CR-65","(≤392°F)"],10));
+  lab.appendChild(label(sx(B.H_NI)+12,sy(40),["SM 2535-110, 125","SM 2035-110, 125","SM 2242-110, 125","(≤300°F)"],10.5));
+  lab.appendChild(label(sx(B.H_2550)+5,sy(YMAX)+16,["SM 2550-110,","125 (≤350°F)","SM 2050 (≤400°F)","SM C276 (≤450°F)"],10.5));
+  lab.appendChild(label(sx(XMIN)+5,sy(B.CO2_U)+16,["SM 13CRM-95,110","(≤356°F)","SM 13CRI-80,110","(≤302°F)","SM 13CR-80,85","(≤302°F)"],9));
+  lab.appendChild(label(sx(B.H_SOUR)+4,sy(B.CO2_U)+16,["SM 13CRS","95, 110","(≤356°F)"],9.5));
+  lab.appendChild(label(sx(XMIN)+5,sy(B.CO2_L)+18,["SM 95G","API: J55, N80Q","P110 (Q125-1)","+ inhibitor"],10));
+  lab.appendChild(label(sx(B.H_SOUR)+6,sy(B.CO2_L)+18,["SM 110S","SM 125S","(≤302°F)"],10.5));
+  lab.appendChild(label(sx(0.9),sy(B.CO2_L)+18,["SM 80S, 90S, 95S","SM C100, C110","API: L80, C90, T95"],10.5));
+  svg.appendChild(lab);
+  svg.appendChild(el("g",{id:"cases"}));
+  svg.appendChild(el("g",{id:"pt"}));
+}
+drawStatic();
+
+/* ---------- state & inputs ---------- */
+let mode="pp";
+function setMode(m){ mode=m; $("tab-pp").setAttribute("aria-selected",m==="pp"); $("tab-comp").setAttribute("aria-selected",m==="comp");
+  $("mode-pp").hidden=m!=="pp"; $("mode-comp").hidden=m!=="comp"; update(); }
+$("tab-pp").onclick=()=>setMode("pp"); $("tab-comp").onclick=()=>setMode("comp");
+["in-co2","in-h2s","in-unit","in-p","in-pu","in-co2pct","in-h2sppm","in-t","in-tu","in-ts","in-tb","in-z","in-zu","in-fug"].forEach(id=>$(id).addEventListener("input",update));
+const num = id => { const v=parseFloat($(id).value); return isFinite(v)? v : null; };
+const ft2 = ft => $("in-zu").value==="m"? `${Math.round(ft/3.28084).toLocaleString()} m` : `${Math.round(ft).toLocaleString()} ft`;
+const cF = f => `${Math.round(f)}°F (${Math.round(F2C(f))}°C)`;
+
+function readInputs(){
+  const tu=$("in-tu").value, toF = v => v==null? null : (tu==="C"? v*9/5+32 : v);
+  document.querySelectorAll(".t-echo").forEach(e=>e.textContent=tu==="C"?"°C":"°F");
+  const tMax=toF(num("in-t")), Ts=toF(num("in-ts")), Tb=toF(num("in-tb"));
+  const zv=num("in-z"), z = zv==null? null : ($("in-zu").value==="m"? zv*3.28084 : zv);
+  const T = tMax ?? Tb;
+  let co2,h2s,usedFug=false;
+  if(mode==="pp"){ const u=$("in-unit").value; $("unit-echo").textContent=u; co2=toPsia(num("in-co2")??0,u); h2s=toPsia(num("in-h2s")??0,u); }
+  else { const pc=num("in-co2pct")??0, pm=num("in-h2sppm")??0;
+    const r=partialFromComposition(num("in-p")??0,$("in-pu").value,pc,pm); co2=r.co2; h2s=r.h2s;
+    let html=`P<sub>abs</sub> = ${fmt(r.pAbs)} psia<br>pCO₂ = ${fmt(r.pAbs)} × ${pc}/100 = <b>${fmt(co2)} psia</b><br>pH₂S = ${fmt(r.pAbs)} × ${pm}/10⁶ = <b>${fmt(h2s)} psia</b>`;
+    if(pc/100+pm/1e6>1) html+=`<br>CO₂ + H₂S exceed 100 mol %; fugacity not computed.`;
+    else if(T==null) html+=`<br>Enter a temperature to compute fugacity.`;
+    else if(r.pAbs>0){ const f=prFugacity(r.pAbs,T,pc/100,pm/1e6);
+      html+=`<br>Peng-Robinson at ${cF(T)}: Z = ${f.Z.toFixed(3)}<br>φCO₂ = ${f.phiCO2.toFixed(3)} → fCO₂ = <b>${fmt(f.fCO2)} psia</b><br>φH₂S = ${f.phiH2S.toFixed(3)} → fH₂S = <b>${fmt(f.fH2S)} psia</b>`;
+      if($("in-fug").checked){ co2=f.fCO2; h2s=f.fH2S; usedFug=true; } }
+    $("calc-out").innerHTML=html; }
+  return {co2:Math.max(co2,0),h2s:Math.max(h2s,0),T,prof:{Ts,Tb,z},tFromBht:tMax==null&&Tb!=null,usedFug};
+}
+
+/* ---------- render ---------- */
+function plotPoint(co2,h2s,zone){
+  const g=$("pt"); g.innerHTML="";
+  const offX = h2s<XMIN, offY = co2<YMIN, overX=h2s>XMAX, overY=co2>YMAX;
+  const x = sx(Math.min(Math.max(h2s,XMIN),XMAX)), y = sy(Math.min(Math.max(co2,YMIN),YMAX));
+  g.appendChild(el("line",{x1:x,x2:x,y1:y,y2:Bt,stroke:"var(--mark)","stroke-dasharray":"4 3","stroke-width":1.4}));
+  g.appendChild(el("line",{x1:L,x2:x,y1:y,y2:y,stroke:"var(--mark)","stroke-dasharray":"4 3","stroke-width":1.4}));
+  g.appendChild(el("circle",{cx:x,cy:y,r:11,fill:"none",stroke:"var(--mark)","stroke-width":2}));
+  g.appendChild(el("circle",{cx:x,cy:y,r:4.5,fill:"var(--mark)"}));
+  const txt=`H₂S ${fmt(h2s)} · CO₂ ${fmt(co2)} psia`+((offX||offY||overX||overY)?" (off scale)":"");
+  const right = x < (L+R)/2; const tx = right? x+16 : x-16; const ty = y<T+30? y+26 : y-14;
+  const w = txt.length*6.6+14;
+  g.appendChild(el("rect",{x: right? tx-4 : tx-w+4, y:ty-14, width:w, height:20, rx:3, fill:"var(--surface)", stroke:"var(--mark)"}));
+  g.appendChild(el("text",{x:tx+(right?3:-3),y:ty,"text-anchor":right?"start":"end","font-size":11.5,fill:"var(--ink)"},txt));
+}
+
+function plotCases(){
+  const g=$("cases"); g.innerHTML=""; if(!$("show-cases").checked) return;
+  CASES.forEach((c,i)=>{ const v=caseInputs(c); const x=sx(Math.min(Math.max(v.h2s,XMIN),XMAX)), y=sy(Math.min(Math.max(v.co2,YMIN),YMAX));
+    g.appendChild(el("rect",{x:x-8,y:y-8,width:16,height:16,rx:2,fill:"var(--surface)",stroke:"var(--accent)","stroke-width":1.5}));
+    g.appendChild(el("text",{x,y:y+4,"text-anchor":"middle","font-size":10,"font-weight":600,fill:"var(--accent)"},String(i+1))); });
+}
+$("show-cases").addEventListener("change",plotCases);
+
+const ISO2_ST = { all:["ok","Whole string"], below:["warn",""], never:["bad","Not acceptable in this well"], needT:["warn","Needs temperature profile"] };
+const iso3Lim = rows => rows.map(([t,p])=>`${p===INF?"any pH₂S":`≤${p} kPa`} at ${t==null?"any T":`≤${t}°C`}`).join("; ");
+
+function update(){
+  const {co2,h2s,T,prof,tFromBht,usedFug}=readInputs(); const r=evaluate(co2,h2s,T,prof); const Z=ZONES[r.zone];
+  plotPoint(co2,h2s,r.zone);
+  const p = usedFug? "f" : "p";
+  const chips=[ r.sour? `<span class="chip bad">Sour · ${p}H₂S ≥ 0.3 kPa (ISO 15156)</span>` : `<span class="chip ok">Not sour · ${p}H₂S &lt; 0.3 kPa</span>`,
+    T==null? `<span class="chip warn">Temperature not set</span>` : `<span class="chip">${T.toFixed(0)}°F · ${F2C(T).toFixed(0)}°C${tFromBht?" (static BHT)":""}</span>` ];
+  if(usedFug) chips.push(`<span class="chip">Fugacity, Peng-Robinson</span>`);
+  r.near.forEach(n=>chips.push(`<span class="chip warn">Near boundary with: ${ZONES[n].family}</span>`));
+  $("result").innerHTML = `
+    <div class="lbl">Chart zone</div>
+    <div class="zone-head"><div class="swatch" style="background:var(--${Z.color})"></div>
+      <div><div class="zone-name">${Z.name}</div><div style="color:var(--muted);font-size:.86rem">${Z.family}</div></div></div>
+    <div class="chips">${chips.join("")}</div>
+    <div class="lbl">Selected grade${r.rec.length>1?"s":""}${r.recZone && r.recZone!==r.zone? " (upgraded for temperature)":""}</div>
+    <div class="rec">${r.rec.length? r.rec.map(g=>`<span>${g}</span>`).join("") : `<span style="background:var(--bad)">No chart grade</span>`}</div>
+    <div class="pp">
+      <div><i>${p}CO₂</i><b>${fmt(co2)} psia</b><i>${fmt(co2/14.5038)} bar · ${fmt(co2/145.038)} MPa</i></div>
+      <div><i>${p}H₂S</i><b>${fmt(h2s)} psia</b><i>${fmt(h2s/0.145038)} kPa · ${fmt(h2s/14.5038)} bar</i></div>
+    </div>
+    ${r.warnings.length? `<ul class="warns">${r.warnings.map(w=>`<li>${w}</li>`).join("")}</ul>`:""}`;
+  // grade table
+  let h="";
+  if(r.zone==="Z2"){ h=`<thead><tr><th>Grade</th><th>H₂S and temp. check</th><th>Basis</th></tr></thead><tbody>`+
+      r.table.map(t=>`<tr><td>${t.g}</td><td class="st ${t.ok?(t.check?"warn":"ok"):"bad"}">${t.ok?(t.check?"Confirm":"Within limits"):"Exceeds limit"}</td><td>${t.why}</td></tr>`).join("")+`</tbody>`; }
+  else { h=`<thead><tr><th>Grade</th><th>Max. temp. (catalogue)</th><th>Status</th></tr></thead><tbody>`+
+      r.table.map(t=>`<tr><td>${t.g}</td><td class="num">${t.tmax==null?"—":`≤${t.tmax}°F (${Math.round((t.tmax-32)*5/9)}°C)`}</td><td class="st ${t.tmax==null?"ok":T==null?"warn":(t.ok?"ok":"bad")}">${t.why}${NOTE_T[t.g]?`<br><span style="color:var(--muted)">${NOTE_T[t.g]}</span>`:""}</td></tr>`).join("")+`</tbody>`;
+    if(T!=null && r.recZone!==r.zone){ const chain=ZONES[r.zone].next; const stop=r.recZone? chain.indexOf(r.recZone) : chain.length-1;
+      chain.slice(0,stop+1).forEach(zid=>{ h+=`<tbody><tr><th colspan="3">Upgrade path: ${ZONES[zid].family}</th></tr>`+
+      ZONES[zid].grades.map(([g,t])=>`<tr><td>${g}</td><td class="num">≤${t}°F (${Math.round((t-32)*5/9)}°C)</td><td class="st ${T<=t?"ok":"bad"}">${T<=t?"Passes":"Too hot"}</td></tr>`).join("")+`</tbody>`; }); } }
+  $("grade-table").innerHTML=h;
+  // ISO 15156-2 box: temperature exemptions evaluated along the static profile
+  if(r.iso){ const full=prof.Ts!=null&&prof.Tb!=null&&prof.z!=null&&prof.z>0;
+    $("iso-box").innerHTML=`<p class="prose" style="margin:0 0 8px;color:var(--muted)">${p}H₂S is at or above 0.3 kPa (0.0435 psia), so ISO 15156-2 / NACE MR0175 applies to carbon and low-alloy steel. The temperature exemptions use the <b>lowest</b> temperature the pipe sees, taken as the static profile from ${prof.Ts!=null?cF(prof.Ts):"the surface temperature"} to ${prof.Tb!=null?cF(prof.Tb):"static BHT"}${full?` at ${ft2(prof.z)} TVD`:""}.</p>
+    <div class="tblwrap"><table><thead><tr><th>API 5CT grade</th><th>Rule</th><th>Acceptable interval</th></tr></thead><tbody>`+
+    r.iso.map(a=>{ const [cls,txt]=ISO2_ST[a.status];
+      return `<tr><td>${a.g}</td><td>${a.tmin==null?"All temperatures":`Min. temperature ≥ ${cF(a.tmin)}`}${a.alt?` (${a.alt})`:""}</td><td class="st ${cls}">${a.status==="below"?`Below ${ft2(a.from)} TVD only`:txt}</td></tr>`; }).join("")+
+    `</tbody></table></div><p class="note">Cool-down from injection or gas expansion is not modelled; lower the surface temperature to cover it.</p>`; }
+  else $("iso-box").innerHTML=`<p class="prose" style="margin:0;color:var(--muted)">${p}H₂S is below 0.3 kPa (0.0435 psia). ISO 15156-2 clause 7.1.1: no special SSC precautions are required for carbon and low-alloy steel. HIC can still occur with trace H₂S in some steels.</p>`;
+  // ISO 15156-3 box
+  if(r.iso3 && r.iso3.length){
+    $("iso3-box").innerHTML=`<p class="prose" style="margin:0 0 8px;color:var(--muted)">Grades of the chart zone and the selected grades, checked at ${p}H₂S = ${fmt(h2s/0.145038)} kPa and ${T==null?"unknown temperature":cF(T)}.</p>
+    <div class="tblwrap"><table><thead><tr><th>Grade</th><th>ISO 15156-3 material type</th><th>Default limits (pH₂S, T)</th><th>At these conditions</th></tr></thead><tbody>`+
+    r.iso3.map(c=>{ const txt = c.status==="ok"? "Within default limits"
+        : c.status==="needT"? `Needs T: max. ${c.tmaxC}°C at this pH₂S`
+        : c.reason==="h2s"? `pH₂S exceeds ${c.maxKPa} kPa default limit` : `Exceeds ${c.tmaxC}°C limit at this pH₂S`;
+      return `<tr><td>${c.grade}${r.rec.includes(c.grade)?" <b>(selected)</b>":""}</td><td>${c.type}${c.note?`<br><span style="color:var(--muted)">${c.note}</span>`:""}</td><td>${iso3Lim(c.rows)}</td><td class="st ${c.status==="ok"?"ok":c.status==="needT"?"warn":"bad"}">${txt}</td></tr>`; }).join("")+
+    `</tbody></table></div><p class="note">Chloride, in-situ pH and elemental sulfur are not assessed; no elemental sulfur assumed. Limits transcribed from ISO 15156-3 Annex A; check them against a licensed copy. A grade outside the default limits can still be used when qualified by testing to ISO 15156-3 Annex B or by mill data for the same conditions.</p>`; }
+  else $("iso3-box").innerHTML=`<p class="prose" style="margin:0;color:var(--muted)">No corrosion-resistant alloy in this zone. Carbon and low-alloy steel are covered by ISO 15156-2 above.</p>`;
+}
+
+/* ---------- chart click / hover ---------- */
+function toData(evt){ const pt=svg.createSVGPoint(); pt.x=evt.clientX; pt.y=evt.clientY; const p=pt.matrixTransform(svg.getScreenCTM().inverse());
+  if(p.x<L||p.x>R||p.y<T||p.y>Bt) return null;
+  return { h2s:10**(X0+(p.x-L)/(R-L)*(X1-X0)), co2:10**(Y0+(Bt-p.y)/(Bt-T)*(Y1-Y0)) }; }
+svg.addEventListener("mousemove",e=>{ const d=toData(e); $("readout").textContent = d? `Cursor: H₂S ${fmt(d.h2s)} psia, CO₂ ${fmt(d.co2)} psia → ${ZONES[classify(d.co2,d.h2s)].family}` : "Click anywhere on the chart to set the partial pressures."; });
+svg.addEventListener("click",e=>{ const d=toData(e); if(!d) return; $("in-unit").value="psia"; $("in-co2").value=+d.co2.toPrecision(3); $("in-h2s").value=+d.h2s.toPrecision(3); setMode("pp"); });
+
+/* ---------- examples ---------- */
+function loadCase(c){ const i=c.input;
+  if(i.mode==="comp"){ $("in-p").value=i.p; $("in-pu").value=i.pu; $("in-co2pct").value=i.co2pct; $("in-h2sppm").value=i.h2sppm; }
+  else { $("in-co2").value=i.co2; $("in-h2s").value=i.h2s; $("in-unit").value=i.u; }
+  $("in-t").value = i.T==null? "" : i.T; $("in-tu").value=i.tu;
+  $("in-ts").value = i.ts ?? ""; $("in-tb").value = i.tb ?? ""; $("in-z").value = i.z ?? ""; $("in-zu").value = i.zu || "ft";
+  setMode(i.mode); }
+CASES.forEach((c,k)=>{ const o=document.createElement("option"); o.value=k; o.textContent=`${k+1}. ${c.title}`; $("in-ex").appendChild(o); });
+$("in-ex").addEventListener("change",e=>{ if(e.target.value!=="") loadCase(CASES[+e.target.value]); });
+
+const fieldN={n:0,ok:0,part:0}, ruleN={n:0,ok:0};
+const MATCH={ true:["ok","✓ Agrees"], partial:["warn","◐ Partial"], false:["bad","✗ Differs"] };
+$("val-table").innerHTML=`<thead><tr><th>#</th><th>Kind</th><th>Case and source</th><th>pCO₂ / pH₂S (psia)</th><th>Published result</th><th>This tool</th><th>Match</th><th></th></tr></thead><tbody>`+
+ CASES.map((c,k)=>{ const v=caseInputs(c); const r=evaluate(v.co2,v.h2s,v.T,v.prof); const res=c.test(r);
+   const tally = c.kind==="rule"? ruleN : fieldN; tally.n++; if(res===true) tally.ok++; if(res==="partial") fieldN.part++;
+   const [cls,txt]=MATCH[res];
+   const tool = `${ZONES[r.zone].family}${r.recZone&&r.recZone!==r.zone?` → ${ZONES[r.recZone].family}`:""}: ${r.rec.slice(0,3).join(", ")}${r.rec.length>3?"…":""}`;
+   return `<tr><td class="num">${k+1}</td><td class="st">${c.kind==="rule"?"Rule":"Field"}</td><td><b>${c.title}</b><br><a href="${c.url}" target="_blank" rel="noopener">${c.src}</a></td>
+   <td class="num">${fmt(v.co2)} / ${fmt(v.h2s)}${v.T!=null?`<br>${v.T.toFixed(0)}°F`:""}</td><td>${c.published}</td><td>${tool}${c.note?`<br><span style="color:var(--muted)">${c.note}</span>`:""}</td>
+   <td class="st ${cls}">${txt}</td><td><button class="btn" data-k="${k}">Plot</button></td></tr>`; }).join("")+`</tbody>`;
+$("score").textContent=`Field cases: ${fieldN.ok} agree${fieldN.part?`, ${fieldN.part} partial`:""} of ${fieldN.n} · Rule checks: ${ruleN.ok} of ${ruleN.n}`;
+$("val-table").addEventListener("click",e=>{ const b=e.target.closest("button[data-k]"); if(b){ loadCase(CASES[+b.dataset.k]); $("in-ex").value=b.dataset.k; window.scrollTo({top:0,behavior:"smooth"}); } });
+
+/* boundary table */
+const BND=[["Carbon steel → CRA (CO₂)","3.44","2.90","0.02 MPa","Catalogue; nipponsteel.com; NS Tech. Rep. 132"],
+ ["Sour threshold (H₂S)","0.046","0.0435","0.0003 MPa","Catalogue; ISO 15156-2 (0.3 kPa)"],
+ ["SM 13CRS ceiling (H₂S)","0.43","0.435","0.003 MPa","Catalogue"],
+ ["High-strength duplex ceiling (H₂S)","1.46","1.45","0.01 MPa","Catalogue"],
+ ["Duplex ceiling / Ni-alloy floor (H₂S)","14.4","14.5","0.1 MPa (1 bar)","NS SM2535 / SM2550 data sheets"],
+ ["13Cr ceiling / SM 2550 floor (CO₂)","1380","1450","10 MPa","Chart only"],
+ ["SM 2550 floor (H₂S)","1410","1450","10 MPa","Chart only"]];
+$("bnd-table").innerHTML=`<thead><tr><th>Boundary</th><th>Your chart (psia)</th><th>Used (psia)</th><th>Official SI</th><th>Source</th></tr></thead><tbody>`+
+ BND.map(b=>`<tr><td>${b[0]}</td><td class="num">${b[1]}</td><td class="num">${b[2]}</td><td class="num">${b[3]}</td><td>${b[4]}</td></tr>`).join("")+`</tbody>`;
+
+const TT=[["SM 13CR-80, 85 / 13CRI","≤300°F","≤150°C (302°F)","Catalogue",0],
+ ["SM 13CRM-95, 110","≤350°F","≤180°C (356°F)","Catalogue",0],
+ ["SM 13CRS-95, 110","≤350°F","≤180°C (356°F)","Catalogue; SM13CRS data sheet",0],
+ ["SM 22CR-110, 125","≤390°F","≤200°C (392°F)","Catalogue",0],
+ ["SM 25CR / 25CRW","≤480°F","≤250°C (482°F)","Catalogue",0],
+ ["SM 2535 / 2035 / 2242","≤480°F","≤149°C (300°F)","Catalogue; SM2535 data sheet",1],
+ ["SM 2550","≤570°F","≤177°C (350°F)","Catalogue; SM2550 data sheet",1],
+ ["SM 110S / 125S","not shown","≤150°C (302°F)","Catalogue",1],
+ ["SM 2050 / SM C276","not shown","≤400°F / ≤450°F","Catalogue",1]];
+$("temp-table").innerHTML=`<thead><tr><th>Grade</th><th>Your chart</th><th>Official</th><th>Source</th></tr></thead><tbody>`+
+ TT.map(r=>`<tr><td>${r[0]}</td><td class="num">${r[1]}</td><td class="num st ${r[4]?"bad":""}">${r[2]}</td><td>${r[3]}</td></tr>`).join("")+`</tbody>`;
+const SRC=[["Sumitomo Metals, Products for the Oil and Gas Industries: Material Selection Guidelines (official catalogue, pp. 6–7)","https://oges-files.s3.amazonaws.com/p/assets/b2dlcywxNDY5MTY0NDY0Njky.pdf"],
+ ["Nippon Steel, OCTG material selection tool (CO₂ step at 2.90 psi)","https://www.tubular-v2.nipponsteel.com/octg-material/material-selection"],
+ ["Nippon Steel Technical Report No. 132 (2025): carbon steel at pCO₂ ≤ 0.02 MPa","https://www.nipponsteel.com/common/secure/en/tech/report/pdf/132-03.pdf"],
+ ["Nippon Steel SM13CRS-110 data sheet (≤180°C)","https://www.tubular.nipponsteel.com/octg-material/data-sheet/sm13crs-110"],
+ ["Nippon Steel SM2550-125 data sheet (≤177°C)","https://www.tubular.nipponsteel.com/octg-material/data-sheet/sm2550-125"],
+ ["Bellarby, J. (2009) Well Completion Design, Elsevier (source of the supplied chart)","https://www.sciencedirect.com/bookseries/developments-in-petroleum-science/vol/56"],["Byrom, T.G. (2015) Casing and Liners for Drilling and Completion, 2nd ed., Gulf Professional Publishing (chart source)","https://www.sciencedirect.com/book/monograph/9780128005705/casing-and-liners-for-drilling-and-completion"],
+ ["Nippon Steel, OCTG material selection chart and grade data sheets (SM-125S, SM-C110, SM-80XS, SM2535, SM2550, SM25CR)","https://www.tubular.nipponsteel.com/octg-material/data-sheet/sm2535-110"],
+ ["ISO 15156-2:2020 / NACE MR0175, carbon and low-alloy steels for H₂S service","https://www.standards.govt.nz/shop/ISO-15156-22020"],
+ ["ISO 15156-3 / NACE MR0175, cracking-resistant CRAs and other alloys (Annex A environmental limits)","https://store.standards.org.au/product/as-15156-3-2022"],
+ ["Peng, D.-Y. and Robinson, D.B. (1976) A new two-constant equation of state, Ind. Eng. Chem. Fundam. 15(1), 59–64","https://doi.org/10.1021/i160057a011"],
+ ["Hansen, B., Devon Energy, Production Casing Design Considerations (EPA workshop): sour definition and API grade temperature rules","https://www.epa.gov/sites/default/files/documents/productioncasingdesignconsiderations.pdf"],
+ ["AMPP, SSC assessment of P110 and Q125RY in mild sour conditions (175°F / 225°F limits)","https://store.ampp.org/sour-crack-initiation-and-propagation-assessment-of-p110-and-q125ry-casing-materials-in-mild-sour-conditions"],
+ ["DrillingFormulas.com (2016), Tubular material selection for HTHP well with example calculation","https://www.drillingformulas.com/tubular-material-selection-for-hthp-well-with-example-calculation/"],
+ ["Webster, C. (2021), A simplified workflow for completion tubing metallurgy selection, 55 and North","https://55andnorth.com/2021/01/06/a-simplified-workflow-for-completion-tubing-metallurgy-selection/"],
+ ["Tubing dimension optimization for the development of an offshore gasfield, FDMP 19(2)","https://www.techscience.com/fdmp/v19n2/49465/html"],
+ ["Hart Energy E&P, Is NACE MR0175/ISO 15156 becoming irrelevant?","https://hartenergy.com/ep/exclusives/nace-mr0175iso-15156-becoming-irrelevant-16605"],
+ ["Nickel Institute, Control of corrosion in oil and gas production tubing","https://nickelinstitute.org/media/8daa78400c08ba5/14052_controlofcorrosioninoilandgasproductiontubing.pdf"]];
+$("src-list").innerHTML=SRC.map(s=>`<li><a href="${s[1]}" target="_blank" rel="noopener">${s[0]}</a></li>`).join("");
+
+/* URL parameters (used by basira.html): mode, co2, h2s, u, p, pu, co2pct, h2sppm, t, tu, ts, tb, z, zu */
+function loadFromUrl(){
+  const q=new URLSearchParams(location.search); if(![...q.keys()].length) return false;
+  const map={co2:"in-co2",h2s:"in-h2s",u:"in-unit",p:"in-p",pu:"in-pu",co2pct:"in-co2pct",h2sppm:"in-h2sppm",t:"in-t",tu:"in-tu",ts:"in-ts",tb:"in-tb",z:"in-z",zu:"in-zu"};
+  for(const k in map){ if(!q.has(k)) continue; const e=$(map[k]), v=q.get(k);
+    if(e.tagName==="SELECT" && ![...e.options].some(o=>o.value===v)) continue; e.value=v; }
+  setMode(q.get("mode")==="comp"?"comp":"pp"); return true;
+}
+if(!loadFromUrl()){ loadCase(CASES[0]); $("in-ex").value="0"; }
+})();
+</script>
+</body>
+</html>
